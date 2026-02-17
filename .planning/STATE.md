@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 2 of 7 (Strategy Engine)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-17 -- Completed 02-01-PLAN.md (Strategy Engine Foundation)
+Last activity: 2026-02-17 -- Completed 02-02-PLAN.md (Liquidity Sweep Strategy)
 
-Progress: [####..................] 18% (4/22 plans)
+Progress: [#####.................] 23% (5/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 7min
 - Total execution time: 0.5 hours
 
@@ -28,10 +28,10 @@ Progress: [####..................] 18% (4/22 plans)
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-data-foundation | 3/3 | 24min | 8min |
-| 02-strategy-engine | 1/3 | 5min | 5min |
+| 02-strategy-engine | 2/3 | 9min | 4.5min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (7min), 01-02 (10min), 01-03 (7min), 02-01 (5min)
+- Last 5 plans: 01-02 (10min), 01-03 (7min), 02-01 (5min), 02-02 (4min)
 - Trend: improving
 
 *Updated after each plan completion*
@@ -61,6 +61,9 @@ Recent decisions affecting current work:
 - [02-01]: pandas_ta_classic import name (not pandas_ta) for pandas-ta-classic package
 - [02-01]: Class attributes for name/required_timeframes/min_candles instead of abstract properties
 - [02-01]: detect_bos as alias for detect_structure_shift for plan artifact compatibility
+- [02-02]: Simplified confirmation (close beyond sweep extreme within 3 bars) for v1 rather than full BOS/CHoCH
+- [02-02]: Additive confidence scoring (base 50, +10 per bonus) capped at 100
+- [02-02]: Float math internally, Decimal(str(round(x, 2))) at CandidateSignal boundary
 
 ### Pending Todos
 
@@ -76,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T15:04:17Z
-Stopped at: Completed 02-01-PLAN.md (Strategy Engine Foundation)
+Last session: 2026-02-17T15:11:46Z
+Stopped at: Completed 02-02-PLAN.md (Liquidity Sweep Strategy)
 Resume file: None
