@@ -3,11 +3,12 @@
 import os
 from datetime import datetime, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -24,38 +25,46 @@ TEST_DATABASE_URL = os.environ.get(
     "postgresql+asyncpg://vaughanfawcett@localhost:5432/goldsignal_test",
 )
 
+# Module-level engine for schema management (create/drop tables)
+_schema_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+_tables_created = False
 
-# ---------------------------------------------------------------------------
-# Database engine (session-scoped -- created once per test session)
-# ---------------------------------------------------------------------------
-@pytest_asyncio.fixture(scope="session")
-async def db_engine():
-    """Create async engine, set up tables, tear down after all tests."""
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    yield engine
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-    await engine.dispose()
+async def _ensure_tables():
+    global _tables_created
+    if not _tables_created:
+        async with _schema_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        _tables_created = True
 
 
 # ---------------------------------------------------------------------------
-# Database session (function-scoped -- each test gets a rolled-back txn)
+# Database session (function-scoped)
+# Each test gets its own engine + session to avoid connection conflicts.
+# Tables are truncated before each test for isolation.
 # ---------------------------------------------------------------------------
 @pytest_asyncio.fixture
-async def db_session(db_engine):
-    """Provide a transactional session that rolls back after each test."""
-    session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+async def db_session():
+    """Provide an isolated database session for each test.
 
-    async with session_factory() as session:
-        async with session.begin():
-            yield session
-            # Rollback is implicit when the context manager exits without commit
+    Creates a fresh engine per test to avoid asyncpg connection contention.
+    Truncates candles table before the test starts for clean state.
+    """
+    await _ensure_tables()
+
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False, pool_size=2)
+
+    # Clean before each test
+    async with engine.begin() as conn:
+        await conn.execute(text("DELETE FROM candles"))
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    session = session_factory()
+
+    yield session
+
+    await session.close()
+    await engine.dispose()
 
 
 # ---------------------------------------------------------------------------
