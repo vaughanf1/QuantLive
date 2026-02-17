@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 1 of 7 (Data Foundation)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-02-17 -- Roadmap created
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-17 -- Completed 01-01-PLAN.md (Project Foundation)
 
-Progress: [....................] 0% (0/22 plans)
+Progress: [#.....................] 5% (1/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 7min
+- Total execution time: 0.1 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-data-foundation | 1/3 | 7min | 7min |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 01-01 (7min)
+- Trend: baseline established
 
 *Updated after each plan completion*
 
@@ -45,6 +45,11 @@ Recent decisions affecting current work:
 - [Roadmap]: 7-phase structure derived from 73 requirements across 12 categories
 - [Roadmap]: Phase 4 (Signal Pipeline) consolidates strategy selection, signal generation, risk management, and gold intelligence into one vertical slice
 - [Roadmap]: Production deployment (Railway) deferred to Phase 7 -- local development through Phases 1-6
+- [01-01]: Numeric(10,2) for prices, Numeric(10,4) for metrics -- never Float for financial data
+- [01-01]: MemoryJobStore for APScheduler (avoids sync driver dependency)
+- [01-01]: asynccontextmanager lifespan instead of deprecated on_event decorators
+- [01-01]: lru_cache singleton for Settings; pool_pre_ping=True for connection resilience
+- [01-01]: PostgreSQL 17 + Python 3.12 installed via Homebrew for local development
 
 ### Pending Todos
 
@@ -55,9 +60,10 @@ None yet.
 - Twelve Data free tier rate limits (800 req/day) may be insufficient -- design aggressive caching from Phase 1
 - vectorbt walk-forward API depth needs prototyping in Phase 3 -- fallback is manual pandas implementation
 - Economic calendar API selection unresolved -- evaluate during Phase 5 planning
+- Alembic requires PYTHONPATH set to project root when run from CLI (prefix with PYTHONPATH=.)
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: Roadmap created, ready to plan Phase 1
+Last session: 2026-02-17T13:50:26Z
+Stopped at: Completed 01-01-PLAN.md (Project Foundation)
 Resume file: None
