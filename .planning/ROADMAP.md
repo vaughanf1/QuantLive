@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Backtesting Engine** - Rolling-window backtests with walk-forward validation and metric calculation
 - [x] **Phase 4: Signal Pipeline** - Strategy selection, signal generation, risk management, and gold-specific intelligence
 - [x] **Phase 5: Delivery and Visibility** - Telegram alerts and TradingView chart overlay
-- [ ] **Phase 6: Outcome Tracking and Feedback** - Automated outcome detection and self-improvement loop
+- [x] **Phase 6: Outcome Tracking and Feedback** - Automated outcome detection and self-improvement loop
 - [ ] **Phase 7: Production Hardening** - Railway deployment, data retention, and 24/7 reliability
 
 ## Phase Details
@@ -120,9 +120,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md -- OutcomeDetector service (Twelve Data /price polling every 30s, SL/TP/expiry detection with spread accounting, outcome recording, signal status updates, Telegram outcome notifications)
-- [ ] 06-02-PLAN.md -- PerformanceTracker service (7d/30d rolling metric recalculation on outcome, upsert to strategy_performance), StrategySelector live metric integration (30% blend)
-- [ ] 06-03-PLAN.md -- FeedbackController (degradation detection, 7-day auto-recovery, circuit breaker with 5-loss and 2x-drawdown triggers, 24h cooldown), Telegram degradation/circuit-breaker alerts, RiskManager circuit breaker integration
+- [x] 06-01-PLAN.md -- OutcomeDetector service (Twelve Data /price polling every 30s, SL/TP/expiry detection with spread accounting, outcome recording, signal status updates, Telegram outcome notifications)
+- [x] 06-02-PLAN.md -- PerformanceTracker service (7d/30d rolling metric recalculation on outcome, upsert to strategy_performance), StrategySelector live metric integration (30% blend)
+- [x] 06-03-PLAN.md -- FeedbackController (degradation detection, 7-day auto-recovery, circuit breaker with 5-loss and 2x-drawdown triggers, 24h cooldown), Telegram degradation/circuit-breaker alerts, RiskManager circuit breaker integration
 
 ### Phase 7: Production Hardening
 **Goal**: The system runs unattended 24/7 on Railway with proper data lifecycle management
@@ -150,5 +150,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 3. Backtesting Engine | 3/3 | Complete | 2026-02-17 |
 | 4. Signal Pipeline | 5/5 | Complete | 2026-02-17 |
 | 5. Delivery and Visibility | 2/2 | Complete | 2026-02-17 |
-| 6. Outcome Tracking and Feedback | 0/3 | Planned | - |
+| 6. Outcome Tracking and Feedback | 3/3 | Complete | 2026-02-17 |
 | 7. Production Hardening | 0/2 | Not started | - |
