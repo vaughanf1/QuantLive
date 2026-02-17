@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Deliver 1-2 high-conviction, statistically validated XAUUSD trade signals per day with full automation from generation through outcome tracking.
-**Current focus:** Phase 3 - Backtesting Engine (Complete)
+**Current focus:** Phase 4 - Signal Pipeline (In Progress)
 
 ## Current Position
 
-Phase: 3 of 7 (Backtesting Engine)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-02-17 -- Completed 03-03-PLAN.md (Daily Backtest Job & Test Suite)
+Phase: 4 of 7 (Signal Pipeline)
+Plan: 2 of 5 in current phase
+Status: In progress
+Last activity: 2026-02-17 -- Completed 04-02-PLAN.md (Signal Generator Service)
 
-Progress: [#########...........] 41% (9/22 plans)
+Progress: [##########..........] 50% (11/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 5.2min
-- Total execution time: 0.8 hours
+- Total plans completed: 11
+- Average duration: 4.7min
+- Total execution time: 0.9 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [#########...........] 41% (9/22 plans)
 | 01-data-foundation | 3/3 | 24min | 8min |
 | 02-strategy-engine | 3/3 | 14min | 4.7min |
 | 03-backtesting-engine | 3/3 | 11min | 3.7min |
+| 04-signal-pipeline | 2/5 | 4min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 02-03 (5min), 03-01 (3min), 03-02 (3min), 03-03 (5min)
-- Trend: stable, ~4min/plan
+- Last 5 plans: 03-01 (3min), 03-02 (3min), 03-03 (5min), 04-01 (2min), 04-02 (2min)
+- Trend: accelerating, ~3min/plan
 
 *Updated after each plan completion*
 
@@ -78,6 +79,8 @@ Recent decisions affecting current work:
 - [03-03]: Strategy imports inside run_daily_backtests() to avoid circular imports and trigger registry
 - [03-03]: Walk-forward efficiency averaged across win_rate and profit_factor WFE ratios
 - [03-03]: BacktestResult rows tagged with spread_model="session_aware" for traceability
+- [04-02]: Dedup checks symbol + direction + active status within 4h window (not strategy-specific)
+- [04-02]: Bias detection is informational only -- appends note to reasoning, never rejects signals
 
 ### Pending Todos
 
@@ -93,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T16:45:10Z
-Stopped at: Completed 03-03-PLAN.md (Daily Backtest Job & Test Suite) -- Phase 3 complete
+Last session: 2026-02-17T17:35:26Z
+Stopped at: Completed 04-02-PLAN.md (Signal Generator Service)
 Resume file: None
