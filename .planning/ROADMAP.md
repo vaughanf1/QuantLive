@@ -79,17 +79,17 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Strategy selector ranks strategies using weighted backtest metrics and current volatility regime, and selects the highest-scoring strategy for signal generation
   2. Generated signals include all required fields (direction, entry, SL, TP1, TP2, R:R, confidence, strategy name, reasoning) with ATR-based SL/TP distances
-  3. Signals below minimum R:R (1:1.5) or minimum confidence (60%) are automatically rejected, and duplicate signals for the same direction within the dedup window are suppressed
+  3. Signals below minimum R:R (1:2) or minimum confidence (65%) are automatically rejected, and duplicate signals for the same direction within the dedup window are suppressed
   4. Risk management enforces per-trade risk limits, maximum concurrent signals, daily loss limits, and volatility-adjusted position sizing
-  5. System identifies current gold trading session (Asian/London/NY/overlap) and suppresses or adjusts signals during low-liquidity periods
-**Plans**: TBD
+  5. System identifies current gold trading session (Asian/London/NY/overlap) and enriches signals with session metadata and overlap confidence boost
+**Plans**: 5 plans
 
 Plans:
-- [ ] 04-01: Strategy selector with composite scoring and volatility regime detection
-- [ ] 04-02: Signal generator with validation filters, dedup, expiry, and bias detection
-- [ ] 04-03: Risk management engine (position sizing, concurrent limits, daily loss limits, drawdown monitoring)
-- [ ] 04-04: Gold-specific intelligence (session identification, session filtering, volatility profiles, DXY correlation)
-- [ ] 04-05: Scanner loop integration (APScheduler, no-op on stale data, end-to-end pipeline test)
+- [ ] 04-01-PLAN.md -- Strategy selector with composite scoring, volatility regime detection, degradation flagging, and H4 confluence check
+- [ ] 04-02-PLAN.md -- Signal generator with R:R/confidence validation, 4h dedup window, timeframe-specific expiry, and directional bias detection
+- [ ] 04-03-PLAN.md -- Risk management engine (1% per-trade, 2 concurrent max, 2% daily loss limit, ATR-adjusted position sizing, drawdown tracking)
+- [ ] 04-04-PLAN.md -- Gold-specific intelligence (session identification, overlap +5 confidence boost, DXY correlation monitoring, volatility profiles)
+- [ ] 04-05-PLAN.md -- Signal pipeline orchestrator, scanner loop job (hourly at :02), stale data guard, and 7 integration tests
 
 ### Phase 5: Delivery and Visibility
 **Goal**: Trade signals reach the trader instantly via Telegram and are visually displayed on a TradingView chart with entry/SL/TP overlays
