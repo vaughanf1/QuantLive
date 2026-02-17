@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 1 of 7 (Data Foundation)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-17 -- Completed 01-01-PLAN.md (Project Foundation)
+Last activity: 2026-02-17 -- Completed 01-02-PLAN.md (Candle Ingestion)
 
-Progress: [#.....................] 5% (1/22 plans)
+Progress: [##....................] 9% (2/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 7min
-- Total execution time: 0.1 hours
+- Total plans completed: 2
+- Average duration: 8.5min
+- Total execution time: 0.3 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-data-foundation | 1/3 | 7min | 7min |
+| 01-data-foundation | 2/3 | 17min | 8.5min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (7min)
-- Trend: baseline established
+- Last 5 plans: 01-01 (7min), 01-02 (10min)
+- Trend: stable
 
 *Updated after each plan completion*
 
@@ -50,6 +50,10 @@ Recent decisions affecting current work:
 - [01-01]: asynccontextmanager lifespan instead of deprecated on_event decorators
 - [01-01]: lru_cache singleton for Settings; pool_pre_ping=True for connection resilience
 - [01-01]: PostgreSQL 17 + Python 3.12 installed via Homebrew for local development
+- [01-02]: Synchronous TDClient wrapped with tenacity retry (3 attempts, exponential backoff max 30s)
+- [01-02]: SQL literal for interval in generate_series (asyncpg cannot bind string as interval type)
+- [01-02]: CronTrigger for precise candle-close alignment with 1-minute offset
+- [01-02]: TimeframeEnum for path parameter validation at FastAPI level
 
 ### Pending Todos
 
@@ -61,9 +65,10 @@ None yet.
 - vectorbt walk-forward API depth needs prototyping in Phase 3 -- fallback is manual pandas implementation
 - Economic calendar API selection unresolved -- evaluate during Phase 5 planning
 - Alembic requires PYTHONPATH set to project root when run from CLI (prefix with PYTHONPATH=.)
+- TWELVE_DATA_API_KEY still set to placeholder -- needs real key before live ingestion
 
 ## Session Continuity
 
-Last session: 2026-02-17T13:50:26Z
-Stopped at: Completed 01-01-PLAN.md (Project Foundation)
+Last session: 2026-02-17T14:04:07Z
+Stopped at: Completed 01-02-PLAN.md (Candle Ingestion)
 Resume file: None
