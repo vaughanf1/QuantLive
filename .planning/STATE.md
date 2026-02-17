@@ -79,6 +79,9 @@ Recent decisions affecting current work:
 - [03-03]: Strategy imports inside run_daily_backtests() to avoid circular imports and trigger registry
 - [03-03]: Walk-forward efficiency averaged across win_rate and profit_factor WFE ratios
 - [03-03]: BacktestResult rows tagged with spread_model="session_aware" for traceability
+- [04-01]: Dataclass for StrategyScore (internal scoring, no serialization boundary)
+- [04-01]: Degradation baseline is OLDEST non-walk-forward BacktestResult per strategy
+- [04-01]: Backtest result fallback chain: 60-day -> 30-day -> any non-walk-forward
 - [04-02]: Dedup checks symbol + direction + active status within 4h window (not strategy-specific)
 - [04-02]: Bias detection is informational only -- appends note to reasoning, never rejects signals
 
