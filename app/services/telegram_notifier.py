@@ -1,0 +1,216 @@
+"""Telegram notification service for trade signal alerts and outcome updates.
+
+Sends formatted HTML messages via the Telegram Bot API with retry logic
+and rate limiting. Designed as fire-and-forget: notification failures are
+logged but never raised to the caller.
+
+Exports:
+    TelegramNotifier  -- main service class
+"""
+
+from __future__ import annotations
+
+import asyncio
+
+import httpx
+from loguru import logger
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+
+class TelegramNotifier:
+    """Sends formatted trade signals and outcomes via Telegram Bot API.
+
+    Features:
+        - HTML-formatted messages (avoids MarkdownV2 escaping issues)
+        - Retry with exponential backoff (3 attempts) on HTTP errors
+        - Rate limiting: max 1 message per second per chat
+        - Fire-and-forget wrappers that never raise exceptions
+        - Disabled mode when bot_token or chat_id is empty
+    """
+
+    TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
+
+    def __init__(self, bot_token: str, chat_id: str) -> None:
+        self.bot_token = bot_token
+        self.chat_id = chat_id
+        self._rate_lock = asyncio.Lock()
+        self._last_send: float = 0.0
+
+    @property
+    def enabled(self) -> bool:
+        """Return True if both bot_token and chat_id are configured."""
+        return bool(self.bot_token and self.chat_id)
+
+    # ------------------------------------------------------------------
+    # Rate limiting
+    # ------------------------------------------------------------------
+
+    async def _rate_limit(self) -> None:
+        """Enforce max 1 message per second to same chat (TELE-05).
+
+        Acquires an asyncio lock, checks elapsed time since last send,
+        and sleeps if less than 1.0 second has passed.
+        """
+        async with self._rate_lock:
+            now = asyncio.get_event_loop().time()
+            elapsed = now - self._last_send
+            if elapsed < 1.0:
+                await asyncio.sleep(1.0 - elapsed)
+            self._last_send = asyncio.get_event_loop().time()
+
+    # ------------------------------------------------------------------
+    # Message delivery with retry
+    # ------------------------------------------------------------------
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError)),
+    )
+    async def _send_message(self, text: str) -> dict:
+        """POST to Telegram sendMessage with retry (TELE-04).
+
+        Retries up to 3 times with exponential backoff on HTTP status
+        errors and connection errors. Calls rate limiter before each
+        attempt to enforce 1 msg/sec.
+        """
+        await self._rate_limit()
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                self.TELEGRAM_API.format(token=self.bot_token),
+                json={
+                    "chat_id": self.chat_id,
+                    "text": text,
+                    "parse_mode": "HTML",
+                },
+            )
+            response.raise_for_status()
+            return response.json()
+
+    # ------------------------------------------------------------------
+    # Signal formatting (TELE-01, TELE-03)
+    # ------------------------------------------------------------------
+
+    def format_signal(self, signal, strategy_name: str = "Unknown") -> str:
+        """Format a Signal ORM object as an HTML Telegram message.
+
+        Includes direction arrow, entry/SL/TP levels, R:R ratio,
+        confidence percentage, strategy name, and reasoning.
+
+        Args:
+            signal: Signal ORM object with entry_price, stop_loss,
+                    take_profit_1, take_profit_2, risk_reward,
+                    confidence, direction, reasoning attributes.
+            strategy_name: Human-readable strategy name.
+
+        Returns:
+            HTML-formatted string safe for Telegram parse_mode="HTML".
+        """
+        arrow = "\u2B06\uFE0F" if signal.direction == "BUY" else "\u2B07\uFE0F"
+        return (
+            f"{arrow} <b>XAUUSD {signal.direction}</b>\n\n"
+            f"<b>Entry:</b> {signal.entry_price}\n"
+            f"<b>Stop Loss:</b> {signal.stop_loss}\n"
+            f"<b>TP1:</b> {signal.take_profit_1}\n"
+            f"<b>TP2:</b> {signal.take_profit_2}\n"
+            f"<b>R:R:</b> {signal.risk_reward}\n"
+            f"<b>Confidence:</b> {signal.confidence}%\n"
+            f"<b>Strategy:</b> {strategy_name}\n\n"
+            f"<i>{signal.reasoning or ''}</i>"
+        )
+
+    # ------------------------------------------------------------------
+    # Outcome formatting (TELE-02, TELE-03)
+    # ------------------------------------------------------------------
+
+    def format_outcome(self, signal, outcome) -> str:
+        """Format a Signal + Outcome pair as an HTML Telegram message.
+
+        Includes result emoji, direction, result type, entry/exit prices,
+        P&L in pips, and duration in minutes.
+
+        Args:
+            signal: Signal ORM object.
+            outcome: Outcome ORM object with result, exit_price,
+                     pnl_pips, duration_minutes attributes.
+
+        Returns:
+            HTML-formatted string safe for Telegram parse_mode="HTML".
+        """
+        emoji_map = {
+            "tp1_hit": "\u2705",
+            "tp2_hit": "\u2705\u2705",
+            "sl_hit": "\u274C",
+            "expired": "\u23F0",
+        }
+        emoji = emoji_map.get(outcome.result, "")
+        return (
+            f"{emoji} <b>XAUUSD {signal.direction} - {outcome.result.upper()}</b>\n\n"
+            f"<b>Entry:</b> {signal.entry_price}\n"
+            f"<b>Exit:</b> {outcome.exit_price}\n"
+            f"<b>P&amp;L:</b> {outcome.pnl_pips} pips\n"
+            f"<b>Duration:</b> {outcome.duration_minutes} min"
+        )
+
+    # ------------------------------------------------------------------
+    # Fire-and-forget wrappers
+    # ------------------------------------------------------------------
+
+    async def notify_signal(self, signal, strategy_name: str = "Unknown") -> None:
+        """Send a signal alert via Telegram. Never raises.
+
+        Checks if notifier is enabled first. Logs success or failure
+        without propagating exceptions to the caller.
+
+        Args:
+            signal: Signal ORM object (must have .id attribute).
+            strategy_name: Human-readable strategy name.
+        """
+        if not self.enabled:
+            logger.debug("Telegram disabled, skipping signal notification")
+            return
+
+        try:
+            text = self.format_signal(signal, strategy_name=strategy_name)
+            await self._send_message(text)
+            logger.info(
+                "Telegram signal notification sent for signal_id={}",
+                signal.id,
+            )
+        except Exception:
+            logger.exception(
+                "Telegram signal notification failed for signal_id={}",
+                signal.id,
+            )
+
+    async def notify_outcome(self, signal, outcome) -> None:
+        """Send an outcome alert via Telegram. Never raises.
+
+        Checks if notifier is enabled first. Logs success or failure
+        without propagating exceptions to the caller.
+
+        Args:
+            signal: Signal ORM object.
+            outcome: Outcome ORM object.
+        """
+        if not self.enabled:
+            logger.debug("Telegram disabled, skipping outcome notification")
+            return
+
+        try:
+            text = self.format_outcome(signal, outcome)
+            await self._send_message(text)
+            logger.info(
+                "Telegram outcome notification sent for signal_id={}",
+                signal.id,
+            )
+        except Exception:
+            logger.exception(
+                "Telegram outcome notification failed for signal_id={}",
+                signal.id,
+            )

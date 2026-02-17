@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # Prop firm account balance in USD (sourced from ACCOUNT_BALANCE env var)
     account_balance: float = 100000.0
 
+    # Telegram (optional -- system works without these configured)
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
