@@ -132,11 +132,11 @@ Plans:
   1. Application is deployed on Railway as a long-running service (not serverless) and stays alive without manual restarts
   2. Data retention policy is enforced -- older low-timeframe data is pruned automatically while higher timeframe data is retained indefinitely
   3. System recovers gracefully from transient failures (API outages, database hiccups) without losing signal state or generating duplicate signals
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: Railway deployment configuration, keep-alive, environment setup
-- [ ] 07-02: Data retention policy, cleanup jobs, graceful degradation, smoke tests
+- [ ] 07-01-PLAN.md -- Dockerfile, railway.json, .dockerignore, /status diagnostic endpoint, Railway deployment checkpoint
+- [ ] 07-02-PLAN.md -- DataRetentionService (M15 90d, H1 365d, backtests 180d), FailureTracker with Telegram system alerts, daily health digest at 06:00 UTC
 
 ## Progress
 
