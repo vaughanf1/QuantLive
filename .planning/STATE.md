@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 6 of 7 (Outcome Tracking and Feedback)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-17 -- Completed 06-01-PLAN.md (Outcome Detector Service)
+Last activity: 2026-02-17 -- Completed 06-02-PLAN.md (Performance Tracker)
 
-Progress: [##################..] 91% (20/22 plans)
+Progress: [###################.] 95% (21/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20
-- Average duration: 3.6min
-- Total execution time: 1.18 hours
+- Total plans completed: 21
+- Average duration: 3.5min
+- Total execution time: 1.23 hours
 
 **By Phase:**
 
@@ -32,11 +32,11 @@ Progress: [##################..] 91% (20/22 plans)
 | 03-backtesting-engine | 3/3 | 11min | 3.7min |
 | 04-signal-pipeline | 5/5 | 16min | 3.2min |
 | 05-delivery-and-visibility | 2/2 | 5min | 2.5min |
-| 06-outcome-tracking-and-feedback | 1/3 | 3min | 3min |
+| 06-outcome-tracking-and-feedback | 2/3 | 6min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 04-05 (3min), 05-01 (2min), 05-02 (3min), 06-01 (3min)
-- Trend: stable, ~2-3min/plan
+- Last 5 plans: 05-01 (2min), 05-02 (3min), 06-01 (3min), 06-02 (3min)
+- Trend: stable, ~3min/plan
 
 *Updated after each plan completion*
 
@@ -107,6 +107,10 @@ Recent decisions affecting current work:
 - [06-01]: Pure _evaluate_signal separated from async I/O for testability
 - [06-01]: exit_price = current bid price (not SL/TP level) for accurate PnL
 - [06-01]: Debug-level logging for no-outcome checks (30s interval = 2880/day)
+- [06-02]: Live blending weight: 70% backtest + 30% live, only when >= 5 live signals exist
+- [06-02]: Live score weights: 0.40 * win_rate + 0.35 * profit_factor_norm + 0.25 * avg_rr_norm
+- [06-02]: PerformanceTracker triggered only on new outcomes (not on every 30s check)
+- [06-02]: is_degraded field left False in PerformanceTracker -- FeedbackController manages it in 06-03
 
 ### Pending Todos
 
@@ -123,6 +127,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T23:01:00Z
-Stopped at: Completed 06-01-PLAN.md (Outcome Detector Service)
+Last session: 2026-02-17T23:08:00Z
+Stopped at: Completed 06-02-PLAN.md (Performance Tracker)
 Resume file: None
