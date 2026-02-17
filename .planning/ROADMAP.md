@@ -48,12 +48,12 @@ Plans:
   2. Every strategy implements the BaseStrategy interface -- calling `analyze()` on any strategy returns the same CandidateSignal structure
   3. A new strategy can be added by creating one file and registering it -- zero changes to downstream code (registry pattern verified)
   4. Each strategy declares its required timeframes and minimum candle history, and raises a clear error if insufficient data is available
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: BaseStrategy interface, CandidateSignal dataclass, strategy registry, indicators module
-- [ ] 02-02: Liquidity Sweep Reversal implementation
-- [ ] 02-03: Trend Continuation and Breakout Expansion implementations
+- [ ] 02-01-PLAN.md -- BaseStrategy ABC with __init_subclass__ registry, CandidateSignal Pydantic model, InsufficientDataError, helpers (indicators, swing detection, session filter, market structure), dependencies update
+- [ ] 02-02-PLAN.md -- Liquidity Sweep Reversal strategy implementation with unit tests
+- [ ] 02-03-PLAN.md -- Trend Continuation and Breakout Expansion strategy implementations, unit tests, registry integration test
 
 ### Phase 3: Backtesting Engine
 **Goal**: The system can evaluate any strategy's historical performance using rolling-window backtests and produce reliable metrics that account for transaction costs
