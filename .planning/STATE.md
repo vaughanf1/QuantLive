@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Deliver 1-2 high-conviction, statistically validated XAUUSD trade signals per day with full automation from generation through outcome tracking.
-**Current focus:** Phase 3 - Backtesting Engine (In Progress)
+**Current focus:** Phase 3 - Backtesting Engine (Complete)
 
 ## Current Position
 
 Phase: 3 of 7 (Backtesting Engine)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-17 -- Completed 03-02-PLAN.md (BacktestRunner & WalkForwardValidator)
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-02-17 -- Completed 03-03-PLAN.md (Daily Backtest Job & Test Suite)
 
-Progress: [########............] 36% (8/22 plans)
+Progress: [#########...........] 41% (9/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 5.3min
-- Total execution time: 0.7 hours
+- Total plans completed: 9
+- Average duration: 5.2min
+- Total execution time: 0.8 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [########............] 36% (8/22 plans)
 |-------|-------|-------|----------|
 | 01-data-foundation | 3/3 | 24min | 8min |
 | 02-strategy-engine | 3/3 | 14min | 4.7min |
-| 03-backtesting-engine | 2/3 | 6min | 3min |
+| 03-backtesting-engine | 3/3 | 11min | 3.7min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (4min), 02-03 (5min), 03-01 (3min), 03-02 (3min)
-- Trend: accelerating, ~3.5min/plan
+- Last 5 plans: 02-03 (5min), 03-01 (3min), 03-02 (3min), 03-03 (5min)
+- Trend: stable, ~4min/plan
 
 *Updated after each plan completion*
 
@@ -75,6 +75,9 @@ Recent decisions affecting current work:
 - [03-01]: BUY entry adjusted up by spread (ask), SELL SL checked against high + spread
 - [03-02]: Mutable default avoidance: window_days_list defaults to None, set to [30, 60] in method body
 - [03-02]: Force-added Alembic migration despite gitignore rule for version control tracking
+- [03-03]: Strategy imports inside run_daily_backtests() to avoid circular imports and trigger registry
+- [03-03]: Walk-forward efficiency averaged across win_rate and profit_factor WFE ratios
+- [03-03]: BacktestResult rows tagged with spread_model="session_aware" for traceability
 
 ### Pending Todos
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T16:38:03Z
-Stopped at: Completed 03-02-PLAN.md (BacktestRunner & WalkForwardValidator)
+Last session: 2026-02-17T16:45:10Z
+Stopped at: Completed 03-03-PLAN.md (Daily Backtest Job & Test Suite) -- Phase 3 complete
 Resume file: None
