@@ -117,12 +117,12 @@ Plans:
   3. Trade outcomes trigger recalculation of rolling performance metrics that directly influence future strategy selection scoring
   4. Degrading strategies (win rate drop >15% or profit factor below 1.0) are auto-deprioritized and a Telegram alert is sent; recovered strategies are automatically restored after 7+ days
   5. Circuit breaker halts signal generation after 5+ consecutive losses or drawdown exceeding 2x historical max
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: Outcome tracker (price polling, TP/SL/expiry detection, spread accounting, status updates)
-- [ ] 06-02: Feedback loop (metric recalculation, strategy re-ranking, degradation detection, auto-deprioritization)
-- [ ] 06-03: Circuit breaker, auto-recovery logic, degradation Telegram alerts
+- [ ] 06-01-PLAN.md -- OutcomeDetector service (Twelve Data /price polling every 30s, SL/TP/expiry detection with spread accounting, outcome recording, signal status updates, Telegram outcome notifications)
+- [ ] 06-02-PLAN.md -- PerformanceTracker service (7d/30d rolling metric recalculation on outcome, upsert to strategy_performance), StrategySelector live metric integration (30% blend)
+- [ ] 06-03-PLAN.md -- FeedbackController (degradation detection, 7-day auto-recovery, circuit breaker with 5-loss and 2x-drawdown triggers, 24h cooldown), Telegram degradation/circuit-breaker alerts, RiskManager circuit breaker integration
 
 ### Phase 7: Production Hardening
 **Goal**: The system runs unattended 24/7 on Railway with proper data lifecycle management
@@ -150,5 +150,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 3. Backtesting Engine | 3/3 | Complete | 2026-02-17 |
 | 4. Signal Pipeline | 5/5 | Complete | 2026-02-17 |
 | 5. Delivery and Visibility | 2/2 | Complete | 2026-02-17 |
-| 6. Outcome Tracking and Feedback | 0/3 | Not started | - |
+| 6. Outcome Tracking and Feedback | 0/3 | Planned | - |
 | 7. Production Hardening | 0/2 | Not started | - |
