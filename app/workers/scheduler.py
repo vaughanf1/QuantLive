@@ -1,15 +1,22 @@
 """APScheduler setup for background task scheduling.
 
-Uses AsyncIOScheduler with in-memory job store. Candle refresh jobs are
-registered via register_jobs() called from the application lifespan.
+Uses AsyncIOScheduler with in-memory job store. Candle refresh jobs and
+outcome detection are registered via register_jobs() called from the
+application lifespan.
 """
 
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from loguru import logger
 
-from app.workers.jobs import refresh_candles, run_daily_backtests, run_signal_scanner
+from app.workers.jobs import (
+    check_outcomes,
+    refresh_candles,
+    run_daily_backtests,
+    run_signal_scanner,
+)
 
 scheduler = AsyncIOScheduler(
     jobstores={
@@ -95,4 +102,15 @@ def register_jobs() -> None:
     )
     logger.info("Registered job: run_signal_scanner (every hour at :02 UTC)")
 
-    logger.info("All {count} jobs registered", count=6)
+    scheduler.add_job(
+        check_outcomes,
+        trigger=IntervalTrigger(seconds=30),
+        id="check_outcomes",
+        name="Check signal outcomes",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    logger.info("Registered job: check_outcomes (every 30 seconds)")
+
+    logger.info("All {count} jobs registered", count=7)

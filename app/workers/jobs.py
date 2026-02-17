@@ -1,4 +1,4 @@
-"""Scheduled job functions for candle ingestion and backtesting.
+"""Scheduled job functions for candle ingestion, backtesting, and outcome detection.
 
 These run outside the FastAPI request context, so sessions are created
 directly from async_session_factory. All exceptions are caught to prevent
@@ -15,8 +15,11 @@ from app.config import get_settings
 from app.database import async_session_factory
 from app.models.backtest_result import BacktestResult
 from app.models.candle import Candle
+from app.models.signal import Signal
 from app.models.strategy import Strategy as StrategyModel
 from app.services.candle_ingestor import CandleIngestor
+from app.services.outcome_detector import OutcomeDetector
+from app.services.telegram_notifier import TelegramNotifier
 
 
 async def refresh_candles(timeframe: str) -> None:
@@ -300,8 +303,6 @@ async def run_signal_scanner() -> None:
             # Send Telegram notifications for new signals (fire-and-forget)
             if signals:
                 settings = get_settings()
-                from app.services.telegram_notifier import TelegramNotifier
-
                 notifier = TelegramNotifier(
                     bot_token=settings.telegram_bot_token,
                     chat_id=settings.telegram_chat_id,
@@ -326,3 +327,43 @@ async def run_signal_scanner() -> None:
 
     except Exception:
         logger.exception("run_signal_scanner failed")
+
+
+async def check_outcomes() -> None:
+    """Check all active signals for outcome detection.
+
+    Runs every 30 seconds via APScheduler IntervalTrigger. Fetches current
+    XAUUSD price, checks against all active signal SL/TP/expiry levels,
+    records outcomes, updates signal status, and sends Telegram notifications.
+
+    Creates its own database session. All exceptions are caught at the top
+    level to prevent scheduler crashes.
+    """
+    try:
+        settings = get_settings()
+        detector = OutcomeDetector(api_key=settings.twelve_data_api_key)
+
+        async with async_session_factory() as session:
+            outcomes = await detector.check_outcomes(session)
+
+            if outcomes:
+                # Send Telegram notifications for each outcome
+                notifier = TelegramNotifier(
+                    bot_token=settings.telegram_bot_token,
+                    chat_id=settings.telegram_chat_id,
+                )
+                if notifier.enabled:
+                    for outcome in outcomes:
+                        signal = await session.get(Signal, outcome.signal_id)
+                        if signal:
+                            await notifier.notify_outcome(signal, outcome)
+
+                logger.info(
+                    "check_outcomes complete | outcomes_detected={}",
+                    len(outcomes),
+                )
+            # Only log at debug level when no outcomes (runs every 30s, avoid log spam)
+            else:
+                logger.debug("check_outcomes: no outcomes detected")
+    except Exception:
+        logger.exception("check_outcomes failed")
