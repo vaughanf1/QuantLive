@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Deliver 1-2 high-conviction, statistically validated XAUUSD trade signals per day with full automation from generation through outcome tracking.
-**Current focus:** Phase 5 - Delivery and Visibility (NOT STARTED)
+**Current focus:** Phase 5 - Delivery and Visibility (IN PROGRESS)
 
 ## Current Position
 
-Phase: 4 of 7 (Signal Pipeline) -- COMPLETE
-Plan: 5 of 5 in current phase
-Status: Phase verified and complete
-Last activity: 2026-02-17 -- Phase 4 complete (verified, gaps fixed)
+Phase: 5 of 7 (Delivery and Visibility)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-17 -- Completed 05-01-PLAN.md (Telegram Notification Service)
 
-Progress: [################....] 73% (17/22 plans)
+Progress: [##################..] 82% (18/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15
-- Average duration: 4.1min
-- Total execution time: 1.05 hours
+- Total plans completed: 18
+- Average duration: 3.8min
+- Total execution time: 1.08 hours
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [################....] 73% (17/22 plans)
 | 02-strategy-engine | 3/3 | 14min | 4.7min |
 | 03-backtesting-engine | 3/3 | 11min | 3.7min |
 | 04-signal-pipeline | 5/5 | 16min | 3.2min |
+| 05-delivery-and-visibility | 1/2 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 04-02 (2min), 04-03 (5min), 04-04 (2min), 04-05 (3min)
+- Last 5 plans: 04-03 (5min), 04-04 (2min), 04-05 (3min), 05-01 (2min)
 - Trend: stable, ~2-5min/plan
-- Phase 4 gaps fixed by orchestrator (strategy imports + ATR wiring)
 
 *Updated after each plan completion*
 
@@ -95,6 +95,10 @@ Recent decisions affecting current work:
 - [04-05]: Module-level _last_scanned_ts for stale data guard (simplest approach, no extra DB query)
 - [04-05]: Pipeline does not catch exceptions -- job handler wraps all work in try/except
 - [04-05]: Position size appended to reasoning string (no separate metadata column needed)
+- [05-01]: HTML parse mode for all Telegram messages (avoids MarkdownV2 escaping with gold prices)
+- [05-01]: Notification wiring in jobs.py (not signal_pipeline.py) to keep pipeline focused
+- [05-01]: notify_outcome() built and tested but NOT wired -- Phase 6 builds outcome detection
+- [05-01]: Strategy name lookup via session.get() in jobs.py with dict caching per strategy_id
 
 ### Pending Todos
 
@@ -107,9 +111,10 @@ None yet.
 - Economic calendar API selection unresolved -- evaluate during Phase 5 planning
 - Alembic requires PYTHONPATH set to project root when run from CLI (prefix with PYTHONPATH=.)
 - TWELVE_DATA_API_KEY still set to placeholder -- needs real key before live ingestion
+- Pre-existing test failure in test_signal_pipeline.py::test_pipeline_risk_rejects_all (mock coroutine issue in _compute_atr)
 
 ## Session Continuity
 
-Last session: 2026-02-17T18:00:00Z
-Stopped at: Phase 4 verified and complete -- gaps fixed (strategy imports + ATR wiring)
+Last session: 2026-02-17T22:20:09Z
+Stopped at: Completed 05-01-PLAN.md (Telegram Notification Service)
 Resume file: None
