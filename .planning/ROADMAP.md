@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Data Foundation** - Application skeleton, database schema, and reliable XAUUSD data ingestion
 - [x] **Phase 2: Strategy Engine** - Three rule-based trading strategies with shared interface
-- [ ] **Phase 3: Backtesting Engine** - Rolling-window backtests with walk-forward validation and metric calculation
+- [x] **Phase 3: Backtesting Engine** - Rolling-window backtests with walk-forward validation and metric calculation
 - [ ] **Phase 4: Signal Pipeline** - Strategy selection, signal generation, risk management, and gold-specific intelligence
 - [ ] **Phase 5: Delivery and Visibility** - Telegram alerts and TradingView chart overlay
 - [ ] **Phase 6: Outcome Tracking and Feedback** - Automated outcome detection and self-improvement loop
@@ -68,9 +68,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- TradeSimulator (OHLC bar walking, SL/TP detection), SessionSpreadModel (session-aware spread costs), MetricsCalculator (5 required metrics)
-- [ ] 03-02-PLAN.md -- BacktestRunner (rolling 30/60-day windows), WalkForwardValidator (80/20 split, overfitting detection), BacktestResult migration for walk-forward fields
-- [ ] 03-03-PLAN.md -- Daily backtest APScheduler job (02:00 UTC), result persistence to database, test suite (15+ tests for simulation, metrics, walk-forward)
+- [x] 03-01-PLAN.md -- TradeSimulator (OHLC bar walking, SL/TP detection), SessionSpreadModel (session-aware spread costs), MetricsCalculator (5 required metrics)
+- [x] 03-02-PLAN.md -- BacktestRunner (rolling 30/60-day windows), WalkForwardValidator (80/20 split, overfitting detection), BacktestResult migration for walk-forward fields
+- [x] 03-03-PLAN.md -- Daily backtest APScheduler job (02:00 UTC), result persistence to database, test suite (20 tests for simulation, metrics, walk-forward)
 
 ### Phase 4: Signal Pipeline
 **Goal**: The system automatically selects the best-performing strategy, generates validated trade signals with risk management, and accounts for gold-specific market behavior
@@ -148,7 +148,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 |-------|----------------|--------|-----------|
 | 1. Data Foundation | 3/3 | Complete | 2026-02-17 |
 | 2. Strategy Engine | 3/3 | Complete | 2026-02-17 |
-| 3. Backtesting Engine | 0/3 | Not started | - |
+| 3. Backtesting Engine | 3/3 | Complete | 2026-02-17 |
 | 4. Signal Pipeline | 0/5 | Not started | - |
 | 5. Delivery and Visibility | 0/3 | Not started | - |
 | 6. Outcome Tracking and Feedback | 0/3 | Not started | - |
