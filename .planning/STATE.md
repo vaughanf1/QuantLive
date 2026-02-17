@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Deliver 1-2 high-conviction, statistically validated XAUUSD trade signals per day with full automation from generation through outcome tracking.
-**Current focus:** Phase 4 - Signal Pipeline (In Progress)
+**Current focus:** Phase 4 - Signal Pipeline (COMPLETE)
 
 ## Current Position
 
 Phase: 4 of 7 (Signal Pipeline)
-Plan: 4 of 5 in current phase
-Status: In progress
-Last activity: 2026-02-17 -- Completed 04-03-PLAN.md (Risk Manager Service)
+Plan: 5 of 5 in current phase
+Status: Phase complete
+Last activity: 2026-02-17 -- Completed 04-05-PLAN.md (Signal Pipeline Orchestrator)
 
-Progress: [##############......] 64% (14/22 plans)
+Progress: [###############.....] 68% (15/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
-- Average duration: 4.2min
-- Total execution time: 1.0 hours
+- Total plans completed: 15
+- Average duration: 4.1min
+- Total execution time: 1.05 hours
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [##############......] 64% (14/22 plans)
 | 01-data-foundation | 3/3 | 24min | 8min |
 | 02-strategy-engine | 3/3 | 14min | 4.7min |
 | 03-backtesting-engine | 3/3 | 11min | 3.7min |
-| 04-signal-pipeline | 4/5 | 13min | 3.3min |
+| 04-signal-pipeline | 5/5 | 16min | 3.2min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01 (2min), 04-02 (2min), 04-03 (5min), 04-04 (2min)
+- Last 5 plans: 04-02 (2min), 04-03 (5min), 04-04 (2min), 04-05 (3min)
 - Trend: stable, ~2-5min/plan
 
 *Updated after each plan completion*
@@ -91,6 +91,9 @@ Recent decisions affecting current work:
 - [04-04]: DXY correlation informational only -- divergence appends to reasoning, does not modify confidence
 - [04-04]: No session-based suppression -- all sessions allowed; overlap gets +5 confidence boost
 - [04-04]: Session label priority: "overlap" if active, else first active session, else "off_hours"
+- [04-05]: Module-level _last_scanned_ts for stale data guard (simplest approach, no extra DB query)
+- [04-05]: Pipeline does not catch exceptions -- job handler wraps all work in try/except
+- [04-05]: Position size appended to reasoning string (no separate metadata column needed)
 
 ### Pending Todos
 
@@ -106,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T17:39:31Z
-Stopped at: Completed 04-03-PLAN.md (Risk Manager Service)
+Last session: 2026-02-17T17:46:11Z
+Stopped at: Completed 04-05-PLAN.md (Signal Pipeline Orchestrator) -- Phase 4 COMPLETE
 Resume file: None
