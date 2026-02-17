@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Deliver 1-2 high-conviction, statistically validated XAUUSD trade signals per day with full automation from generation through outcome tracking.
-**Current focus:** Phase 5 - Delivery and Visibility (COMPLETE)
+**Current focus:** Phase 6 - Outcome Tracking and Feedback (IN PROGRESS)
 
 ## Current Position
 
-Phase: 5 of 7 (Delivery and Visibility) -- COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase verified and complete
-Last activity: 2026-02-17 -- Phase 5 complete (verified, all must-haves passed)
+Phase: 6 of 7 (Outcome Tracking and Feedback)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-17 -- Completed 06-01-PLAN.md (Outcome Detector Service)
 
-Progress: [#################...] 86% (19/22 plans)
+Progress: [##################..] 91% (20/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
-- Average duration: 3.7min
-- Total execution time: 1.13 hours
+- Total plans completed: 20
+- Average duration: 3.6min
+- Total execution time: 1.18 hours
 
 **By Phase:**
 
@@ -32,9 +32,10 @@ Progress: [#################...] 86% (19/22 plans)
 | 03-backtesting-engine | 3/3 | 11min | 3.7min |
 | 04-signal-pipeline | 5/5 | 16min | 3.2min |
 | 05-delivery-and-visibility | 2/2 | 5min | 2.5min |
+| 06-outcome-tracking-and-feedback | 1/3 | 3min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 04-04 (2min), 04-05 (3min), 05-01 (2min), 05-02 (3min)
+- Last 5 plans: 04-05 (3min), 05-01 (2min), 05-02 (3min), 06-01 (3min)
 - Trend: stable, ~2-3min/plan
 
 *Updated after each plan completion*
@@ -103,6 +104,9 @@ Recent decisions affecting current work:
 - [05-02]: Jinja2Templates with absolute path resolution via Path(__file__).resolve()
 - [05-02]: UTC-defensive Unix timestamp conversion with naive-datetime guard
 - [05-02]: LEFT JOIN Signal-Outcome for color-coded historical markers
+- [06-01]: Pure _evaluate_signal separated from async I/O for testability
+- [06-01]: exit_price = current bid price (not SL/TP level) for accurate PnL
+- [06-01]: Debug-level logging for no-outcome checks (30s interval = 2880/day)
 
 ### Pending Todos
 
@@ -119,6 +123,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T22:21:17Z
-Stopped at: Phase 5 verified and complete -- all 10 requirements (TELE-01..05, TV-01..05) verified
+Last session: 2026-02-17T23:01:00Z
+Stopped at: Completed 06-01-PLAN.md (Outcome Detector Service)
 Resume file: None
