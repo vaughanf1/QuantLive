@@ -11,6 +11,7 @@ from app.database import engine
 from app.utils.logging import setup_logging
 from app.workers.scheduler import register_jobs, scheduler
 from app.api.candles import router as candles_router
+from app.api.chart import router as chart_router
 from app.api.health import router as health_router
 
 
@@ -43,3 +44,4 @@ app = FastAPI(
 
 app.include_router(health_router)
 app.include_router(candles_router)
+app.include_router(chart_router)
