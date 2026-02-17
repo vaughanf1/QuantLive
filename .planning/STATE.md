@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 3 of 7 (Backtesting Engine)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-17 -- Completed 03-01-PLAN.md (Core Backtesting Components)
+Last activity: 2026-02-17 -- Completed 03-02-PLAN.md (BacktestRunner & WalkForwardValidator)
 
-Progress: [#######.............] 32% (7/22 plans)
+Progress: [########............] 36% (8/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 5.6min
-- Total execution time: 0.65 hours
+- Total plans completed: 8
+- Average duration: 5.3min
+- Total execution time: 0.7 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [#######.............] 32% (7/22 plans)
 |-------|-------|-------|----------|
 | 01-data-foundation | 3/3 | 24min | 8min |
 | 02-strategy-engine | 3/3 | 14min | 4.7min |
-| 03-backtesting-engine | 1/3 | 3min | 3min |
+| 03-backtesting-engine | 2/3 | 6min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (5min), 02-02 (4min), 02-03 (5min), 03-01 (3min)
-- Trend: accelerating, ~4min/plan
+- Last 5 plans: 02-02 (4min), 02-03 (5min), 03-01 (3min), 03-02 (3min)
+- Trend: accelerating, ~3.5min/plan
 
 *Updated after each plan completion*
 
@@ -73,6 +73,8 @@ Recent decisions affecting current work:
 - [03-01]: Spread model returns tightest spread when multiple sessions overlap
 - [03-01]: profit_factor capped at 9999.9999 for Numeric(10,4) DB compatibility
 - [03-01]: BUY entry adjusted up by spread (ask), SELL SL checked against high + spread
+- [03-02]: Mutable default avoidance: window_days_list defaults to None, set to [30, 60] in method body
+- [03-02]: Force-added Alembic migration despite gitignore rule for version control tracking
 
 ### Pending Todos
 
@@ -81,13 +83,13 @@ None yet.
 ### Blockers/Concerns
 
 - Twelve Data free tier rate limits (800 req/day) may be insufficient -- design aggressive caching from Phase 1
-- vectorbt walk-forward API depth needs prototyping in Phase 3 -- fallback is manual pandas implementation (03-01 used pure pandas, no vectorbt)
+- vectorbt not used -- walk-forward implemented with pure pandas 80/20 split (simpler, no extra dependency)
 - Economic calendar API selection unresolved -- evaluate during Phase 5 planning
 - Alembic requires PYTHONPATH set to project root when run from CLI (prefix with PYTHONPATH=.)
 - TWELVE_DATA_API_KEY still set to placeholder -- needs real key before live ingestion
 
 ## Session Continuity
 
-Last session: 2026-02-17T16:32:02Z
-Stopped at: Completed 03-01-PLAN.md (Core Backtesting Components)
+Last session: 2026-02-17T16:38:03Z
+Stopped at: Completed 03-02-PLAN.md (BacktestRunner & WalkForwardValidator)
 Resume file: None
