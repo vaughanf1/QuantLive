@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Deliver 1-2 high-conviction, statistically validated XAUUSD trade signals per day with full automation from generation through outcome tracking.
-**Current focus:** Phase 5 - Delivery and Visibility (IN PROGRESS)
+**Current focus:** Phase 5 - Delivery and Visibility (COMPLETE)
 
 ## Current Position
 
-Phase: 5 of 7 (Delivery and Visibility)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-17 -- Completed 05-01-PLAN.md (Telegram Notification Service)
+Phase: 5 of 7 (Delivery and Visibility) -- COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-17 -- Completed 05-02-PLAN.md (Chart Visualization)
 
-Progress: [##################..] 82% (18/22 plans)
+Progress: [#################...] 86% (19/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
-- Average duration: 3.8min
-- Total execution time: 1.08 hours
+- Total plans completed: 19
+- Average duration: 3.7min
+- Total execution time: 1.13 hours
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [##################..] 82% (18/22 plans)
 | 02-strategy-engine | 3/3 | 14min | 4.7min |
 | 03-backtesting-engine | 3/3 | 11min | 3.7min |
 | 04-signal-pipeline | 5/5 | 16min | 3.2min |
-| 05-delivery-and-visibility | 1/2 | 2min | 2min |
+| 05-delivery-and-visibility | 2/2 | 5min | 2.5min |
 
 **Recent Trend:**
-- Last 5 plans: 04-03 (5min), 04-04 (2min), 04-05 (3min), 05-01 (2min)
-- Trend: stable, ~2-5min/plan
+- Last 5 plans: 04-04 (2min), 04-05 (3min), 05-01 (2min), 05-02 (3min)
+- Trend: stable, ~2-3min/plan
 
 *Updated after each plan completion*
 
@@ -99,6 +99,10 @@ Recent decisions affecting current work:
 - [05-01]: Notification wiring in jobs.py (not signal_pipeline.py) to keep pipeline focused
 - [05-01]: notify_outcome() built and tested but NOT wired -- Phase 6 builds outcome detection
 - [05-01]: Strategy name lookup via session.get() in jobs.py with dict caching per strategy_id
+- [05-02]: TradingView Lightweight Charts v5.1 loaded from unpkg CDN (no npm build step)
+- [05-02]: Jinja2Templates with absolute path resolution via Path(__file__).resolve()
+- [05-02]: UTC-defensive Unix timestamp conversion with naive-datetime guard
+- [05-02]: LEFT JOIN Signal-Outcome for color-coded historical markers
 
 ### Pending Todos
 
@@ -115,6 +119,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T22:20:09Z
-Stopped at: Completed 05-01-PLAN.md (Telegram Notification Service)
+Last session: 2026-02-17T22:21:17Z
+Stopped at: Completed 05-02-PLAN.md (Chart Visualization) -- Phase 5 complete
 Resume file: None
