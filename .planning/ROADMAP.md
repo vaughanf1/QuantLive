@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Data Foundation** - Application skeleton, database schema, and reliable XAUUSD data ingestion
 - [x] **Phase 2: Strategy Engine** - Three rule-based trading strategies with shared interface
 - [x] **Phase 3: Backtesting Engine** - Rolling-window backtests with walk-forward validation and metric calculation
-- [ ] **Phase 4: Signal Pipeline** - Strategy selection, signal generation, risk management, and gold-specific intelligence
+- [x] **Phase 4: Signal Pipeline** - Strategy selection, signal generation, risk management, and gold-specific intelligence
 - [ ] **Phase 5: Delivery and Visibility** - Telegram alerts and TradingView chart overlay
 - [ ] **Phase 6: Outcome Tracking and Feedback** - Automated outcome detection and self-improvement loop
 - [ ] **Phase 7: Production Hardening** - Railway deployment, data retention, and 24/7 reliability
@@ -85,11 +85,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Strategy selector with composite scoring, volatility regime detection, degradation flagging, and H4 confluence check
-- [ ] 04-02-PLAN.md -- Signal generator with R:R/confidence validation, 4h dedup window, timeframe-specific expiry, and directional bias detection
-- [ ] 04-03-PLAN.md -- Risk management engine (1% per-trade, 2 concurrent max, 2% daily loss limit, ATR-adjusted position sizing, drawdown tracking)
-- [ ] 04-04-PLAN.md -- Gold-specific intelligence (session identification, overlap +5 confidence boost, DXY correlation monitoring, volatility profiles)
-- [ ] 04-05-PLAN.md -- Signal pipeline orchestrator, scanner loop job (hourly at :02), stale data guard, and 7 integration tests
+- [x] 04-01-PLAN.md -- Strategy selector with composite scoring, volatility regime detection, degradation flagging, and H4 confluence check
+- [x] 04-02-PLAN.md -- Signal generator with R:R/confidence validation, 4h dedup window, timeframe-specific expiry, and directional bias detection
+- [x] 04-03-PLAN.md -- Risk management engine (1% per-trade, 2 concurrent max, 2% daily loss limit, ATR-adjusted position sizing, drawdown tracking)
+- [x] 04-04-PLAN.md -- Gold-specific intelligence (session identification, overlap +5 confidence boost, DXY correlation monitoring, volatility profiles)
+- [x] 04-05-PLAN.md -- Signal pipeline orchestrator, scanner loop job (hourly at :02), stale data guard, and 7 integration tests
 
 ### Phase 5: Delivery and Visibility
 **Goal**: Trade signals reach the trader instantly via Telegram and are visually displayed on a TradingView chart with entry/SL/TP overlays
@@ -149,7 +149,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 1. Data Foundation | 3/3 | Complete | 2026-02-17 |
 | 2. Strategy Engine | 3/3 | Complete | 2026-02-17 |
 | 3. Backtesting Engine | 3/3 | Complete | 2026-02-17 |
-| 4. Signal Pipeline | 0/5 | Not started | - |
+| 4. Signal Pipeline | 5/5 | Complete | 2026-02-17 |
 | 5. Delivery and Visibility | 0/3 | Not started | - |
 | 6. Outcome Tracking and Feedback | 0/3 | Not started | - |
 | 7. Production Hardening | 0/2 | Not started | - |
