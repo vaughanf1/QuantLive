@@ -14,6 +14,8 @@ from app.strategies.base import (
 
 # Concrete strategy imports -- triggers auto-registration via __init_subclass__
 from app.strategies.liquidity_sweep import LiquiditySweepStrategy
+from app.strategies.trend_continuation import TrendContinuationStrategy
+from app.strategies.breakout_expansion import BreakoutExpansionStrategy
 
 __all__ = [
     "BaseStrategy",
@@ -22,4 +24,6 @@ __all__ = [
     "InsufficientDataError",
     "candles_to_dataframe",
     "LiquiditySweepStrategy",
+    "TrendContinuationStrategy",
+    "BreakoutExpansionStrategy",
 ]
