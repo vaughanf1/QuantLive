@@ -66,12 +66,16 @@ class RiskManager:
         self,
         session: AsyncSession,
         candidates: list[CandidateSignal],
+        current_atr: float = 1.0,
+        baseline_atr: float = 1.0,
     ) -> list[tuple[CandidateSignal, RiskCheckResult]]:
         """Run all risk checks against a list of candidate signals.
 
         Args:
             session: Active database session for querying signals/outcomes.
             candidates: Pre-validated candidate signals from strategy engine.
+            current_atr: Current ATR(14) value for volatility adjustment.
+            baseline_atr: Baseline ATR(14) for normalization (e.g. 50-period mean).
 
         Returns:
             List of (candidate, RiskCheckResult) tuples in input order.
@@ -131,13 +135,10 @@ class RiskManager:
             sl_distance = abs(
                 float(candidate.entry_price) - float(candidate.stop_loss)
             )
-            # NOTE: current_atr and baseline_atr are provided by the caller
-            # (SignalPipeline). For now, use 1.0/1.0 defaults -- the check()
-            # method will be extended when SignalPipeline is built.
             position_size = self.calculate_position_size(
                 sl_distance_price=sl_distance,
-                current_atr=1.0,
-                baseline_atr=1.0,
+                current_atr=current_atr,
+                baseline_atr=baseline_atr,
             )
 
             account_balance = get_settings().account_balance

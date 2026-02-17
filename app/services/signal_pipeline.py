@@ -16,15 +16,17 @@ from __future__ import annotations
 from decimal import Decimal
 
 from loguru import logger
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.candle import Candle
 from app.models.signal import Signal
 from app.models.strategy import Strategy as StrategyModel
 from app.services.gold_intelligence import GoldIntelligence
 from app.services.risk_manager import RiskManager
 from app.services.signal_generator import SignalGenerator
 from app.services.strategy_selector import StrategySelector
+from app.strategies.helpers.indicators import compute_atr
 
 
 class SignalPipeline:
@@ -96,8 +98,13 @@ class SignalPipeline:
             logger.info("All candidates filtered out during validation")
             return []
 
-        # 5. Risk check
-        risk_results = await self.risk_manager.check(session, validated)
+        # 5. Risk check (with real ATR for volatility-adjusted sizing)
+        current_atr, baseline_atr = await self._compute_atr(session)
+        risk_results = await self.risk_manager.check(
+            session, validated,
+            current_atr=current_atr,
+            baseline_atr=baseline_atr,
+        )
 
         # Filter to only approved candidates
         approved_candidates = []
@@ -200,3 +207,65 @@ class SignalPipeline:
             regime.value,
         )
         return persisted
+
+    async def _compute_atr(
+        self, session: AsyncSession
+    ) -> tuple[float, float]:
+        """Compute current and baseline ATR(14) from H1 candle data.
+
+        Current ATR is the latest ATR(14) value. Baseline ATR is the mean
+        of the last 50 ATR values, providing a normalization reference for
+        volatility-adjusted position sizing.
+
+        Returns:
+            (current_atr, baseline_atr) -- defaults to (1.0, 1.0) if
+            insufficient data is available.
+        """
+        import pandas as pd
+
+        # Need at least 14 + 50 bars for a meaningful baseline
+        stmt = (
+            select(Candle.high, Candle.low, Candle.close)
+            .where(
+                and_(
+                    Candle.symbol == "XAUUSD",
+                    Candle.timeframe == "H1",
+                )
+            )
+            .order_by(Candle.timestamp.desc())
+            .limit(100)
+        )
+        result = await session.execute(stmt)
+        rows = result.all()
+
+        if len(rows) < 20:  # Need ATR(14) + a few bars minimum
+            logger.debug(
+                "Insufficient H1 candles ({}) for ATR, using defaults",
+                len(rows),
+            )
+            return (1.0, 1.0)
+
+        # Rows are desc; reverse to chronological order
+        rows = list(reversed(rows))
+        highs = pd.Series([float(r[0]) for r in rows])
+        lows = pd.Series([float(r[1]) for r in rows])
+        closes = pd.Series([float(r[2]) for r in rows])
+
+        atr_series = compute_atr(highs, lows, closes, length=14)
+        atr_valid = atr_series.dropna()
+
+        if atr_valid.empty:
+            return (1.0, 1.0)
+
+        current_atr = float(atr_valid.iloc[-1])
+        baseline_atr = float(atr_valid.mean())
+
+        if current_atr <= 0 or baseline_atr <= 0:
+            return (1.0, 1.0)
+
+        logger.debug(
+            "ATR computed: current={:.4f}, baseline={:.4f}",
+            current_atr,
+            baseline_atr,
+        )
+        return (current_atr, baseline_atr)

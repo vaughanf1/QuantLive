@@ -67,8 +67,8 @@ class SignalGenerator:
         )
         # Import concrete strategies to trigger registration
         import app.strategies.liquidity_sweep  # noqa: F401
-        import app.strategies.fvg_reentry  # noqa: F401
-        import app.strategies.ema_momentum  # noqa: F401
+        import app.strategies.trend_continuation  # noqa: F401
+        import app.strategies.breakout_expansion  # noqa: F401
 
         # 1. Get strategy instance
         try:
