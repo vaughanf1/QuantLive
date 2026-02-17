@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Deliver 1-2 high-conviction, statistically validated XAUUSD trade signals per day with full automation from generation through outcome tracking.
-**Current focus:** Phase 6 - Outcome Tracking and Feedback (COMPLETE)
+**Current focus:** Phase 7 - Production Hardening (IN PROGRESS)
 
 ## Current Position
 
-Phase: 6 of 7 (Outcome Tracking and Feedback)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-02-17 -- Completed 06-03-PLAN.md (Feedback Controller)
+Phase: 7 of 7 (Production Hardening)
+Plan: 2 of 2 in current phase
+Status: In progress (07-01 pending)
+Last activity: 2026-02-17 -- Completed 07-02-PLAN.md (Data Retention & Failure Tracking)
 
-Progress: [####################] 100% (22/22 plans)
+Progress: [#######################-] 96% (23/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
-- Average duration: 3.5min
-- Total execution time: 1.33 hours
+- Total plans completed: 23
+- Average duration: 3.4min
+- Total execution time: 1.38 hours
 
 **By Phase:**
 
@@ -33,9 +33,10 @@ Progress: [####################] 100% (22/22 plans)
 | 04-signal-pipeline | 5/5 | 16min | 3.2min |
 | 05-delivery-and-visibility | 2/2 | 5min | 2.5min |
 | 06-outcome-tracking-and-feedback | 3/3 | 12min | 4min |
+| 07-production-hardening | 1/2 | 3min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 05-02 (3min), 06-01 (3min), 06-02 (3min), 06-03 (6min)
+- Last 5 plans: 06-01 (3min), 06-02 (3min), 06-03 (6min), 07-02 (3min)
 - Trend: stable, ~3-4min/plan
 
 *Updated after each plan completion*
@@ -114,6 +115,10 @@ Recent decisions affecting current work:
 - [06-03]: Circuit breaker state stored as class-level attributes (not DB) since app is single-process with MemoryJobStore
 - [06-03]: Lazy import of FeedbackController in RiskManager.check() to avoid circular import
 - [06-03]: Recovery checks 7d StrategyPerformance for recent metrics and 30d row for degradation timestamp
+- [07-02]: Class-level state for FailureTracker (consistent with circuit breaker pattern from 06-03)
+- [07-02]: SQLAlchemy delete() for retention (not raw SQL) for type safety and model consistency
+- [07-02]: Only M15 (90d) and H1 (365d) candles pruned; H4/D1/signals/outcomes explicitly excluded
+- [07-02]: Health digest collects candle counts, active signals, today's outcomes, and job failure counts
 
 ### Pending Todos
 
@@ -130,6 +135,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T23:19:30Z
-Stopped at: Completed 06-03-PLAN.md (Feedback Controller) -- Phase 6 complete
+Last session: 2026-02-17T23:58:00Z
+Stopped at: Completed 07-02-PLAN.md (Data Retention & Failure Tracking)
 Resume file: None
