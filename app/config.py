@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # Scheduling
     candle_refresh_delay_seconds: int = 60
 
+    # Trading
+    # Prop firm account balance in USD (sourced from ACCOUNT_BALANCE env var)
+    account_balance: float = 100000.0
+
 
 @lru_cache
 def get_settings() -> Settings:
