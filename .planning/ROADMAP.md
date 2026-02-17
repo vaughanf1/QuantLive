@@ -12,7 +12,7 @@ GoldSignal is built in 7 phases following the natural dependency chain of a clos
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Data Foundation** - Application skeleton, database schema, and reliable XAUUSD data ingestion
+- [x] **Phase 1: Data Foundation** - Application skeleton, database schema, and reliable XAUUSD data ingestion
 - [ ] **Phase 2: Strategy Engine** - Three rule-based trading strategies with shared interface
 - [ ] **Phase 3: Backtesting Engine** - Rolling-window backtests with walk-forward validation and metric calculation
 - [ ] **Phase 4: Signal Pipeline** - Strategy selection, signal generation, risk management, and gold-specific intelligence
@@ -35,9 +35,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- FastAPI skeleton, PostgreSQL schema with 6 tables, Alembic async migrations, loguru logging, pydantic-settings config
-- [ ] 01-02-PLAN.md -- Twelve Data candle ingestion with upsert dedup, gap detection via generate_series(), APScheduler cron jobs for M15/H1/H4/D1, candles REST API
-- [ ] 01-03-PLAN.md -- Test suite for upsert dedup, gap detection, incremental fetch, timezone correctness, health and candles API endpoints
+- [x] 01-01-PLAN.md -- FastAPI skeleton, PostgreSQL schema with 6 tables, Alembic async migrations, loguru logging, pydantic-settings config
+- [x] 01-02-PLAN.md -- Twelve Data candle ingestion with upsert dedup, gap detection via generate_series(), APScheduler cron jobs for M15/H1/H4/D1, candles REST API
+- [x] 01-03-PLAN.md -- Test suite for upsert dedup, gap detection, incremental fetch, timezone correctness, health and candles API endpoints
 
 ### Phase 2: Strategy Engine
 **Goal**: Three rule-based trading strategies analyze XAUUSD data and produce standardized candidate signals through a common interface
@@ -146,7 +146,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Data Foundation | 0/3 | Not started | - |
+| 1. Data Foundation | 3/3 | Complete | 2026-02-17 |
 | 2. Strategy Engine | 0/3 | Not started | - |
 | 3. Backtesting Engine | 0/3 | Not started | - |
 | 4. Signal Pipeline | 0/5 | Not started | - |
