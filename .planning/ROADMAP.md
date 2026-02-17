@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Strategy Engine** - Three rule-based trading strategies with shared interface
 - [x] **Phase 3: Backtesting Engine** - Rolling-window backtests with walk-forward validation and metric calculation
 - [x] **Phase 4: Signal Pipeline** - Strategy selection, signal generation, risk management, and gold-specific intelligence
-- [ ] **Phase 5: Delivery and Visibility** - Telegram alerts and TradingView chart overlay
+- [x] **Phase 5: Delivery and Visibility** - Telegram alerts and TradingView chart overlay
 - [ ] **Phase 6: Outcome Tracking and Feedback** - Automated outcome detection and self-improvement loop
 - [ ] **Phase 7: Production Hardening** - Railway deployment, data retention, and 24/7 reliability
 
@@ -104,8 +104,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- TelegramNotifier service (signal + outcome formatting, HTML parse mode, retry with backoff, rate limiting), config additions, pipeline wiring in jobs.py
-- [ ] 05-02-PLAN.md -- TradingView Lightweight Charts v5.1 page with candlestick chart, signal markers, SL/TP price lines, REST endpoints (/chart/candles, /chart/signals), auto-refresh
+- [x] 05-01-PLAN.md -- TelegramNotifier service (signal + outcome formatting, HTML parse mode, retry with backoff, rate limiting), config additions, pipeline wiring in jobs.py
+- [x] 05-02-PLAN.md -- TradingView Lightweight Charts v5.1 page with candlestick chart, signal markers, SL/TP price lines, REST endpoints (/chart/candles, /chart/signals), auto-refresh
 
 ### Phase 6: Outcome Tracking and Feedback
 **Goal**: The system automatically detects trade outcomes and uses them to continuously improve strategy selection
@@ -149,6 +149,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 2. Strategy Engine | 3/3 | Complete | 2026-02-17 |
 | 3. Backtesting Engine | 3/3 | Complete | 2026-02-17 |
 | 4. Signal Pipeline | 5/5 | Complete | 2026-02-17 |
-| 5. Delivery and Visibility | 0/2 | Not started | - |
+| 5. Delivery and Visibility | 2/2 | Complete | 2026-02-17 |
 | 6. Outcome Tracking and Feedback | 0/3 | Not started | - |
 | 7. Production Hardening | 0/2 | Not started | - |
