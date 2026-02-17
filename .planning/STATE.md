@@ -10,17 +10,17 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 4 of 7 (Signal Pipeline)
-Plan: 2 of 5 in current phase
+Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-17 -- Completed 04-02-PLAN.md (Signal Generator Service)
+Last activity: 2026-02-17 -- Completed 04-04-PLAN.md (Gold Intelligence Service)
 
-Progress: [##########..........] 50% (11/22 plans)
+Progress: [#############.......] 59% (13/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
-- Average duration: 4.7min
+- Total plans completed: 13
+- Average duration: 4.3min
 - Total execution time: 0.9 hours
 
 **By Phase:**
@@ -30,11 +30,11 @@ Progress: [##########..........] 50% (11/22 plans)
 | 01-data-foundation | 3/3 | 24min | 8min |
 | 02-strategy-engine | 3/3 | 14min | 4.7min |
 | 03-backtesting-engine | 3/3 | 11min | 3.7min |
-| 04-signal-pipeline | 2/5 | 4min | 2min |
+| 04-signal-pipeline | 4/5 | 8min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (3min), 03-02 (3min), 03-03 (5min), 04-01 (2min), 04-02 (2min)
-- Trend: accelerating, ~3min/plan
+- Last 5 plans: 03-03 (5min), 04-01 (2min), 04-02 (2min), 04-03 (2min), 04-04 (2min)
+- Trend: accelerating, ~2min/plan
 
 *Updated after each plan completion*
 
@@ -84,6 +84,9 @@ Recent decisions affecting current work:
 - [04-01]: Backtest result fallback chain: 60-day -> 30-day -> any non-walk-forward
 - [04-02]: Dedup checks symbol + direction + active status within 4h window (not strategy-specific)
 - [04-02]: Bias detection is informational only -- appends note to reasoning, never rejects signals
+- [04-04]: DXY correlation informational only -- divergence appends to reasoning, does not modify confidence
+- [04-04]: No session-based suppression -- all sessions allowed; overlap gets +5 confidence boost
+- [04-04]: Session label priority: "overlap" if active, else first active session, else "off_hours"
 
 ### Pending Todos
 
@@ -99,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T17:35:26Z
-Stopped at: Completed 04-02-PLAN.md (Signal Generator Service)
+Last session: 2026-02-17T17:37:48Z
+Stopped at: Completed 04-04-PLAN.md (Gold Intelligence Service)
 Resume file: None
