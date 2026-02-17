@@ -33,6 +33,7 @@ from tenacity import (
 
 from app.models.outcome import Outcome
 from app.models.signal import Signal
+from app.services.performance_tracker import PerformanceTracker
 from app.services.spread_model import SessionSpreadModel
 
 
@@ -54,6 +55,7 @@ class OutcomeDetector:
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
         self.spread_model = SessionSpreadModel()
+        self.performance_tracker = PerformanceTracker()
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -110,6 +112,21 @@ class OutcomeDetector:
 
         if outcomes:
             await session.commit()
+
+            # Recalculate rolling performance metrics for each affected strategy
+            affected_strategy_ids = {
+                signal.strategy_id
+                for signal in active_signals
+                if signal.status != "active"  # status updated by _record_outcome
+            }
+            for sid in affected_strategy_ids:
+                try:
+                    await self.performance_tracker.recalculate_for_strategy(session, sid)
+                except Exception:
+                    logger.exception(
+                        "outcome_detector: failed to recalculate performance for strategy_id={}",
+                        sid,
+                    )
 
         return outcomes
 

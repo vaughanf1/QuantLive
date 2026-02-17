@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.backtest_result import BacktestResult
 from app.models.candle import Candle
 from app.models.strategy import Strategy as StrategyModel
+from app.models.strategy_performance import StrategyPerformance
 from app.strategies.base import candles_to_dataframe
 from app.strategies.helpers.indicators import compute_atr, compute_ema
 
@@ -81,6 +82,24 @@ METRIC_WEIGHTS: dict[str, float] = {
 # ---------------------------------------------------------------------------
 
 MIN_TRADES = 50
+
+# ---------------------------------------------------------------------------
+# Live performance blending (06-02)
+# ---------------------------------------------------------------------------
+
+LIVE_BLEND_WEIGHT = 0.30  # 30% live, 70% backtest when >= MIN_LIVE_SIGNALS
+MIN_LIVE_SIGNALS = 5  # Minimum live signals before blending kicks in
+
+# Live metric scoring weights (must sum to 1.0)
+LIVE_SCORE_WEIGHTS: dict[str, float] = {
+    "win_rate": 0.40,
+    "profit_factor": 0.35,
+    "avg_rr": 0.25,
+}
+
+# Normalization caps for live metrics
+LIVE_PF_CAP = 3.0  # Profit factor cap for normalization
+LIVE_RR_CAP = 5.0  # Risk:reward cap for normalization
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +165,31 @@ class StrategySelector:
 
         # Apply regime modifier
         scores = self._apply_regime_modifier(scores, regime)
+
+        # Blend live performance metrics (30% weight) when sufficient data exists
+        live_metrics = await self._fetch_live_metrics(session)
+        for s in scores:
+            if s.strategy_id in live_metrics:
+                perf = live_metrics[s.strategy_id]
+                if perf.total_signals >= MIN_LIVE_SIGNALS:
+                    live_score = self._score_live_metrics(perf)
+                    original = s.composite_score
+                    s.composite_score = (
+                        (1.0 - LIVE_BLEND_WEIGHT) * s.composite_score
+                        + LIVE_BLEND_WEIGHT * live_score
+                    )
+                    logger.info(
+                        "Live blend: '{}' score {:.4f} -> {:.4f} "
+                        "(live_score={:.4f}, n={})",
+                        s.strategy_name,
+                        original,
+                        s.composite_score,
+                        live_score,
+                        perf.total_signals,
+                    )
+
+        # Re-sort after live blending
+        scores.sort(key=lambda s: s.composite_score, reverse=True)
 
         # Check degradation for each strategy
         result_map: dict[str, BacktestResult] = {
@@ -540,3 +584,44 @@ class StrategySelector:
         if reasons:
             return True, "; ".join(reasons)
         return False, None
+
+    # ------------------------------------------------------------------
+    # Internal: live performance blending (06-02)
+    # ------------------------------------------------------------------
+
+    async def _fetch_live_metrics(
+        self, session: AsyncSession
+    ) -> dict[int, StrategyPerformance]:
+        """Fetch the latest 30d StrategyPerformance row per strategy.
+
+        Returns a dict mapping strategy_id -> StrategyPerformance for the
+        "30d" period.  Only strategies with a 30d row are included.
+        """
+        stmt = select(StrategyPerformance).where(
+            StrategyPerformance.period == "30d"
+        )
+        result = await session.execute(stmt)
+        rows = list(result.scalars().all())
+        return {r.strategy_id: r for r in rows}
+
+    @staticmethod
+    def _score_live_metrics(perf: StrategyPerformance) -> float:
+        """Compute a normalised 0-1 score from live performance metrics.
+
+        Normalisation:
+            - win_rate: already 0-1 (used directly)
+            - profit_factor: capped at LIVE_PF_CAP, divided by LIVE_PF_CAP
+            - avg_rr: capped at LIVE_RR_CAP, divided by LIVE_RR_CAP
+
+        Weights: 0.40 * win_rate + 0.35 * pf_norm + 0.25 * rr_norm
+        """
+        wr = float(perf.win_rate or 0)
+        pf = min(float(perf.profit_factor or 0), LIVE_PF_CAP) / LIVE_PF_CAP
+        rr = min(float(perf.avg_rr or 0), LIVE_RR_CAP) / LIVE_RR_CAP
+
+        score = (
+            LIVE_SCORE_WEIGHTS["win_rate"] * wr
+            + LIVE_SCORE_WEIGHTS["profit_factor"] * pf
+            + LIVE_SCORE_WEIGHTS["avg_rr"] * rr
+        )
+        return score
