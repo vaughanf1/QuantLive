@@ -85,6 +85,25 @@ class RiskManager:
         if not candidates:
             return results
 
+        # 0. Check circuit breaker (FEED-05) -- lazy import to avoid circular
+        from app.services.feedback_controller import FeedbackController
+
+        feedback = FeedbackController()
+        circuit_active = await feedback.check_circuit_breaker(session)
+        if circuit_active:
+            logger.warning(
+                "Circuit breaker active, suppressing all signal generation"
+            )
+            for candidate in candidates:
+                results.append((
+                    candidate,
+                    RiskCheckResult(
+                        approved=False,
+                        rejection_reason="Circuit breaker active: signal generation halted",
+                    ),
+                ))
+            return results
+
         # 1. Check daily loss limit (applies globally to all candidates)
         daily_breached, daily_pnl = await self._check_daily_loss(session)
 

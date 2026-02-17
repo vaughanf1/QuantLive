@@ -358,6 +358,40 @@ async def check_outcomes() -> None:
                         if signal:
                             await notifier.notify_outcome(signal, outcome)
 
+                # Run feedback checks (degradation detection, circuit breaker)
+                from app.services.feedback_controller import FeedbackController
+
+                feedback = FeedbackController()
+
+                # Collect unique strategy IDs from detected outcomes
+                strategy_ids: set[int] = set()
+                for outcome in outcomes:
+                    signal = await session.get(Signal, outcome.signal_id)
+                    if signal:
+                        strategy_ids.add(signal.strategy_id)
+
+                # Check degradation/recovery for each affected strategy
+                for sid in strategy_ids:
+                    strat_row = await session.get(StrategyModel, sid)
+                    strat_name = strat_row.name if strat_row else f"strategy_{sid}"
+
+                    is_degraded, reason = await feedback.check_degradation(
+                        session, sid
+                    )
+                    if is_degraded and reason:
+                        await notifier.notify_degradation(strat_name, reason)
+
+                    recovered = await feedback.check_recovery(session, sid)
+                    if recovered:
+                        await notifier.notify_degradation(
+                            strat_name,
+                            "Metrics recovered above thresholds",
+                            is_recovery=True,
+                        )
+
+                # Check circuit breaker (global, not per-strategy)
+                await feedback.check_circuit_breaker(session)
+
                 logger.info(
                     "check_outcomes complete | outcomes_detected={}",
                     len(outcomes),

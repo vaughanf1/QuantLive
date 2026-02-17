@@ -214,3 +214,82 @@ class TelegramNotifier:
                 "Telegram outcome notification failed for signal_id={}",
                 signal.id,
             )
+
+    # ------------------------------------------------------------------
+    # Degradation / recovery formatting (FEED-03, FEED-04)
+    # ------------------------------------------------------------------
+
+    def format_degradation(
+        self, strategy_name: str, reason: str, is_recovery: bool = False
+    ) -> str:
+        """Format a degradation or recovery alert as HTML.
+
+        Args:
+            strategy_name: Name of the affected strategy.
+            reason: Why degradation was detected or recovery occurred.
+            is_recovery: True for recovery alerts, False for degradation.
+        """
+        if is_recovery:
+            return (
+                f"\U0001f504 <b>Strategy Recovered: {strategy_name}</b>\n\n"
+                f"<i>{reason}</i>"
+            )
+        return (
+            f"\u26a0\ufe0f <b>Strategy Degraded: {strategy_name}</b>\n\n"
+            f"<b>Reason:</b> {reason}\n\n"
+            f"<i>Strategy has been auto-deprioritized. "
+            f"Will auto-recover if metrics improve over 7+ days.</i>"
+        )
+
+    async def notify_degradation(
+        self, strategy_name: str, reason: str, is_recovery: bool = False
+    ) -> None:
+        """Send a degradation/recovery alert via Telegram. Never raises."""
+        if not self.enabled:
+            logger.debug("Telegram disabled, skipping degradation notification")
+            return
+        try:
+            text = self.format_degradation(strategy_name, reason, is_recovery)
+            await self._send_message(text)
+            label = "recovery" if is_recovery else "degradation"
+            logger.info(
+                "Telegram {} notification sent for '{}'",
+                label,
+                strategy_name,
+            )
+        except Exception:
+            logger.exception(
+                "Telegram degradation notification failed for '{}'",
+                strategy_name,
+            )
+
+    # ------------------------------------------------------------------
+    # Circuit breaker formatting (FEED-05)
+    # ------------------------------------------------------------------
+
+    def format_circuit_breaker(self, reason: str, active: bool) -> str:
+        """Format circuit breaker activation/deactivation alert."""
+        if active:
+            return (
+                f"\U0001f6d1 <b>CIRCUIT BREAKER ACTIVATED</b>\n\n"
+                f"<b>Reason:</b> {reason}\n\n"
+                f"<i>Signal generation halted. Auto-resets after 24 hours.</i>"
+            )
+        return (
+            f"\u2705 <b>Circuit Breaker Reset</b>\n\n"
+            f"<i>Signal generation resumed. {reason}</i>"
+        )
+
+    async def notify_circuit_breaker(self, reason: str, active: bool) -> None:
+        """Send circuit breaker alert. Never raises."""
+        if not self.enabled:
+            return
+        try:
+            text = self.format_circuit_breaker(reason, active)
+            await self._send_message(text)
+            logger.info(
+                "Telegram circuit breaker notification sent (active={})",
+                active,
+            )
+        except Exception:
+            logger.exception("Telegram circuit breaker notification failed")
