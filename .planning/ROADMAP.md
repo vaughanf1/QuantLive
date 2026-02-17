@@ -32,12 +32,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Candle data refreshes automatically on schedule aligned to candle close times without manual intervention
   4. System detects and logs missing candles, data gaps, and stale data rather than silently using bad data
   5. Repeated fetches do not create duplicate candles -- cached data is reused and only new candles are fetched
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: FastAPI skeleton, PostgreSQL schema, Alembic migrations, structured logging
-- [ ] 01-02: Twelve Data ingestion, caching, gap detection, scheduled refresh
-- [ ] 01-03: Data validation, index performance, integration test of full data pipeline
+- [ ] 01-01-PLAN.md -- FastAPI skeleton, PostgreSQL schema with 6 tables, Alembic async migrations, loguru logging, pydantic-settings config
+- [ ] 01-02-PLAN.md -- Twelve Data candle ingestion with upsert dedup, gap detection via generate_series(), APScheduler cron jobs for M15/H1/H4/D1, candles REST API
+- [ ] 01-03-PLAN.md -- Test suite for upsert dedup, gap detection, incremental fetch, timezone correctness, health and candles API endpoints
 
 ### Phase 2: Strategy Engine
 **Goal**: Three rule-based trading strategies analyze XAUUSD data and produce standardized candidate signals through a common interface
