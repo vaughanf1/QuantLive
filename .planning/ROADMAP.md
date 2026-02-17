@@ -65,12 +65,12 @@ Plans:
   3. Walk-forward validation splits data 80/20 and flags strategies that perform significantly worse on out-of-sample data (overfitting detection)
   4. Backtest results account for session-appropriate spread costs (not zero-spread assumptions)
   5. Backtests run as scheduled background jobs and all results are persisted to the database with timestamps and parameters
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: vectorbt backtest runner, rolling windows, metric calculation
-- [ ] 03-02: Walk-forward validation, spread model, overfitting detection
-- [ ] 03-03: Background scheduling, result persistence, backtest verification
+- [ ] 03-01-PLAN.md -- TradeSimulator (OHLC bar walking, SL/TP detection), SessionSpreadModel (session-aware spread costs), MetricsCalculator (5 required metrics)
+- [ ] 03-02-PLAN.md -- BacktestRunner (rolling 30/60-day windows), WalkForwardValidator (80/20 split, overfitting detection), BacktestResult migration for walk-forward fields
+- [ ] 03-03-PLAN.md -- Daily backtest APScheduler job (02:00 UTC), result persistence to database, test suite (15+ tests for simulation, metrics, walk-forward)
 
 ### Phase 4: Signal Pipeline
 **Goal**: The system automatically selects the best-performing strategy, generates validated trade signals with risk management, and accounts for gold-specific market behavior
