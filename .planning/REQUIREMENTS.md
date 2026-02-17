@@ -170,13 +170,13 @@
 | DATA-03 | Phase 1 | Complete |
 | DATA-04 | Phase 1 | Complete |
 | DATA-05 | Phase 1 | Complete |
-| STRAT-01 | Phase 2 | Pending |
-| STRAT-02 | Phase 2 | Pending |
-| STRAT-03 | Phase 2 | Pending |
-| STRAT-04 | Phase 2 | Pending |
-| STRAT-05 | Phase 2 | Pending |
-| STRAT-06 | Phase 2 | Pending |
-| STRAT-07 | Phase 2 | Pending |
+| STRAT-01 | Phase 2 | Complete |
+| STRAT-02 | Phase 2 | Complete |
+| STRAT-03 | Phase 2 | Complete |
+| STRAT-04 | Phase 2 | Complete |
+| STRAT-05 | Phase 2 | Complete |
+| STRAT-06 | Phase 2 | Complete |
+| STRAT-07 | Phase 2 | Complete |
 | BACK-01 | Phase 3 | Pending |
 | BACK-02 | Phase 3 | Pending |
 | BACK-03 | Phase 3 | Pending |
@@ -246,4 +246,4 @@
 
 ---
 *Requirements defined: 2026-02-17*
-*Last updated: 2026-02-17 after Phase 1 completion*
+*Last updated: 2026-02-17 after Phase 2 completion*
