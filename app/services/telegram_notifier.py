@@ -293,3 +293,117 @@ class TelegramNotifier:
             )
         except Exception:
             logger.exception("Telegram circuit breaker notification failed")
+
+    # ------------------------------------------------------------------
+    # System alert formatting (PROD-02)
+    # ------------------------------------------------------------------
+
+    def format_system_alert(self, title: str, details: str) -> str:
+        """Format a system alert as an HTML Telegram message.
+
+        Used for operational alerts such as consecutive job failures,
+        database connectivity issues, or other infrastructure problems.
+
+        Args:
+            title: Short alert title (e.g. "Candle Refresh Failing").
+            details: Detailed description of the issue.
+
+        Returns:
+            HTML-formatted string safe for Telegram parse_mode="HTML".
+        """
+        return (
+            f"\u26a0\ufe0f <b>SYSTEM ALERT: {title}</b>\n\n"
+            f"{details}"
+        )
+
+    async def notify_system_alert(self, title: str, details: str) -> None:
+        """Send a system alert via Telegram. Never raises.
+
+        Args:
+            title: Short alert title.
+            details: Detailed description of the issue.
+        """
+        if not self.enabled:
+            logger.debug("Telegram disabled, skipping system alert")
+            return
+        try:
+            text = self.format_system_alert(title, details)
+            await self._send_message(text)
+            logger.info(
+                "Telegram system alert sent: '{}'", title,
+            )
+        except Exception:
+            logger.exception(
+                "Telegram system alert failed: '{}'", title,
+            )
+
+    # ------------------------------------------------------------------
+    # Health digest formatting (PROD-02)
+    # ------------------------------------------------------------------
+
+    def format_health_digest(self, stats: dict) -> str:
+        """Format a daily health digest as an HTML Telegram message.
+
+        Args:
+            stats: Dictionary of operational statistics. Expected keys:
+                - active_signals: Number of active signals
+                - outcomes_today: Number of outcomes detected today
+                - candles_m15/h1/h4/d1: Candle counts by timeframe
+                - retention_results: Dict of pruned row counts (optional)
+                - job_failures: Dict of job_id -> consecutive failure count
+                - uptime_hours: Hours since last restart (optional)
+
+        Returns:
+            HTML-formatted string safe for Telegram parse_mode="HTML".
+        """
+        lines = ["\U0001f4ca <b>Daily Health Digest</b>\n"]
+
+        # Signals & outcomes
+        active = stats.get("active_signals", 0)
+        outcomes = stats.get("outcomes_today", 0)
+        lines.append(f"<b>Active signals:</b> {active}")
+        lines.append(f"<b>Outcomes today:</b> {outcomes}")
+        lines.append("")
+
+        # Candle counts
+        lines.append("<b>Candle Data:</b>")
+        for tf in ["M15", "H1", "H4", "D1"]:
+            key = f"candles_{tf.lower()}"
+            count = stats.get(key, "N/A")
+            lines.append(f"  {tf}: {count}")
+        lines.append("")
+
+        # Retention results (if available)
+        retention = stats.get("retention_results")
+        if retention:
+            lines.append("<b>Last Retention Run:</b>")
+            for key, count in retention.items():
+                lines.append(f"  {key}: {count} pruned")
+            lines.append("")
+
+        # Job failure counts
+        failures = stats.get("job_failures", {})
+        if any(v > 0 for v in failures.values()):
+            lines.append("<b>Job Failures:</b>")
+            for job_id, count in failures.items():
+                if count > 0:
+                    lines.append(f"  \u26a0\ufe0f {job_id}: {count} consecutive")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    async def notify_health_digest(self, stats: dict) -> None:
+        """Send a daily health digest via Telegram. Never raises.
+
+        Args:
+            stats: Dictionary of operational statistics for digest.
+        """
+        if not self.enabled:
+            logger.debug("Telegram disabled, skipping health digest")
+            return
+        try:
+            text = self.format_health_digest(stats)
+            await self._send_message(text)
+            logger.info("Telegram health digest sent")
+        except Exception:
+            logger.exception("Telegram health digest failed")
