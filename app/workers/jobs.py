@@ -297,6 +297,28 @@ async def run_signal_scanner() -> None:
             pipeline = SignalPipeline(selector, generator, risk_manager, gold_intel)
             signals = await pipeline.run(session)
 
+            # Send Telegram notifications for new signals (fire-and-forget)
+            if signals:
+                settings = get_settings()
+                from app.services.telegram_notifier import TelegramNotifier
+
+                notifier = TelegramNotifier(
+                    bot_token=settings.telegram_bot_token,
+                    chat_id=settings.telegram_chat_id,
+                )
+                if notifier.enabled:
+                    # Look up strategy names via session.get() (cached per strategy_id)
+                    strat_lookup: dict[int, str] = {}
+                    for sig in signals:
+                        if sig.strategy_id not in strat_lookup:
+                            strat_row = await session.get(StrategyModel, sig.strategy_id)
+                            strat_lookup[sig.strategy_id] = (
+                                strat_row.name if strat_row else "Unknown"
+                            )
+                        await notifier.notify_signal(
+                            sig, strategy_name=strat_lookup[sig.strategy_id]
+                        )
+
             logger.info(
                 "run_signal_scanner complete | signals_generated={}",
                 len(signals),
