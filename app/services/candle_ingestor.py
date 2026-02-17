@@ -277,12 +277,14 @@ class CandleIngestor:
         if pg_interval is None:
             raise ValueError(f"Unknown timeframe: {timeframe}")
 
-        query = text("""
+        # Embed interval as a SQL literal (safe: pg_interval is from our controlled mapping).
+        # asyncpg cannot bind a plain string as a PostgreSQL interval parameter.
+        query = text(f"""
             SELECT expected_ts
             FROM generate_series(
-                :start_ts::timestamptz,
-                :end_ts::timestamptz,
-                :interval::interval
+                CAST(:start_ts AS timestamptz),
+                CAST(:end_ts AS timestamptz),
+                '{pg_interval}'::interval
             ) AS expected_ts
             LEFT JOIN candles c
                 ON c.symbol = :symbol
@@ -298,7 +300,6 @@ class CandleIngestor:
             {
                 "start_ts": start,
                 "end_ts": end,
-                "interval": pg_interval,
                 "symbol": symbol,
                 "timeframe": timeframe,
             },
