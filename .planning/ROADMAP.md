@@ -101,12 +101,11 @@ Plans:
   3. Telegram delivery retries on failure (3 attempts, exponential backoff) and respects rate limits (max 1 msg/sec)
   4. A browser-accessible web page displays a live XAUUSD candlestick chart with signal markers (entry arrows, SL/TP horizontal lines) and color-coded historical outcomes
   5. Chart data is served via FastAPI REST endpoints and the page is accessible from the Railway-hosted URL
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Telegram bot setup, signal formatting (HTML parse mode), delivery with retry and rate limiting
-- [ ] 05-02: Telegram outcome notifications
-- [ ] 05-03: TradingView Lightweight Charts page with signal overlays, REST endpoints, historical outcome display
+- [ ] 05-01-PLAN.md -- TelegramNotifier service (signal + outcome formatting, HTML parse mode, retry with backoff, rate limiting), config additions, pipeline wiring in jobs.py
+- [ ] 05-02-PLAN.md -- TradingView Lightweight Charts v5.1 page with candlestick chart, signal markers, SL/TP price lines, REST endpoints (/chart/candles, /chart/signals), auto-refresh
 
 ### Phase 6: Outcome Tracking and Feedback
 **Goal**: The system automatically detects trade outcomes and uses them to continuously improve strategy selection
@@ -150,6 +149,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 2. Strategy Engine | 3/3 | Complete | 2026-02-17 |
 | 3. Backtesting Engine | 3/3 | Complete | 2026-02-17 |
 | 4. Signal Pipeline | 5/5 | Complete | 2026-02-17 |
-| 5. Delivery and Visibility | 0/3 | Not started | - |
+| 5. Delivery and Visibility | 0/2 | Not started | - |
 | 6. Outcome Tracking and Feedback | 0/3 | Not started | - |
 | 7. Production Hardening | 0/2 | Not started | - |
