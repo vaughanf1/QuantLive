@@ -1,15 +1,17 @@
-"""Scheduled job functions for candle ingestion, backtesting, and outcome detection.
+"""Scheduled job functions for candle ingestion, backtesting, outcome detection,
+data retention, and health digest.
 
 These run outside the FastAPI request context, so sessions are created
 directly from async_session_factory. All exceptions are caught to prevent
-scheduler crashes.
+scheduler crashes. FailureTracker wires into each job to detect consecutive
+failures and send Telegram system alerts.
 """
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from loguru import logger
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.config import get_settings
 from app.database import async_session_factory
@@ -18,6 +20,8 @@ from app.models.candle import Candle
 from app.models.signal import Signal
 from app.models.strategy import Strategy as StrategyModel
 from app.services.candle_ingestor import CandleIngestor
+from app.services.data_retention import DataRetentionService
+from app.services.failure_tracker import FailureTracker
 from app.services.outcome_detector import OutcomeDetector
 from app.services.telegram_notifier import TelegramNotifier
 
@@ -32,6 +36,7 @@ async def refresh_candles(timeframe: str) -> None:
     Args:
         timeframe: Internal timeframe code (M15, H1, H4, D1).
     """
+    job_id = f"refresh_candles_{timeframe}"
     try:
         settings = get_settings()
         ingestor = CandleIngestor(api_key=settings.twelve_data_api_key)
@@ -54,11 +59,24 @@ async def refresh_candles(timeframe: str) -> None:
                 gaps=len(gaps),
             )
 
+        FailureTracker.record_success(job_id)
+
     except Exception:
         logger.exception(
             "refresh_candles failed | timeframe={timeframe}",
             timeframe=timeframe,
         )
+        count = FailureTracker.record_failure(job_id)
+        if FailureTracker.should_alert(job_id):
+            settings = get_settings()
+            notifier = TelegramNotifier(
+                bot_token=settings.telegram_bot_token,
+                chat_id=settings.telegram_chat_id,
+            )
+            await notifier.notify_system_alert(
+                "Candle Refresh Failing",
+                f"{timeframe} refresh has failed {count} consecutive times",
+            )
 
 
 async def run_daily_backtests() -> None:
@@ -325,8 +343,21 @@ async def run_signal_scanner() -> None:
                 len(signals),
             )
 
+        FailureTracker.record_success("run_signal_scanner")
+
     except Exception:
         logger.exception("run_signal_scanner failed")
+        count = FailureTracker.record_failure("run_signal_scanner")
+        if FailureTracker.should_alert("run_signal_scanner"):
+            settings = get_settings()
+            notifier = TelegramNotifier(
+                bot_token=settings.telegram_bot_token,
+                chat_id=settings.telegram_chat_id,
+            )
+            await notifier.notify_system_alert(
+                "Signal Scanner Failing",
+                f"Signal scanner has failed {count} consecutive times",
+            )
 
 
 async def check_outcomes() -> None:
@@ -399,5 +430,156 @@ async def check_outcomes() -> None:
             # Only log at debug level when no outcomes (runs every 30s, avoid log spam)
             else:
                 logger.debug("check_outcomes: no outcomes detected")
+
+        FailureTracker.record_success("check_outcomes")
+
     except Exception:
         logger.exception("check_outcomes failed")
+        count = FailureTracker.record_failure("check_outcomes")
+        if FailureTracker.should_alert("check_outcomes"):
+            settings = get_settings()
+            notifier = TelegramNotifier(
+                bot_token=settings.telegram_bot_token,
+                chat_id=settings.telegram_chat_id,
+            )
+            await notifier.notify_system_alert(
+                "Outcome Detection Failing",
+                f"Outcome detection has failed {count} consecutive times",
+            )
+
+
+async def run_data_retention() -> None:
+    """Run data retention policies to prune old candle and backtest data.
+
+    Executed daily at 03:00 UTC (after backtests at 02:00). Deletes M15
+    candles >90 days old, H1 candles >365 days old, and backtest results
+    >180 days old. H4/D1 candles and signals/outcomes are never pruned.
+
+    Creates its own database session. All exceptions are caught at the top
+    level to prevent scheduler crashes.
+    """
+    try:
+        retention = DataRetentionService()
+
+        async with async_session_factory() as session:
+            results = await retention.run(session)
+
+            total_pruned = sum(results.values())
+            logger.info(
+                "run_data_retention complete | total_pruned={total} | details={results}",
+                total=total_pruned,
+                results=results,
+            )
+
+        FailureTracker.record_success("run_data_retention")
+
+    except Exception:
+        logger.exception("run_data_retention failed")
+        count = FailureTracker.record_failure("run_data_retention")
+        if FailureTracker.should_alert("run_data_retention"):
+            settings = get_settings()
+            notifier = TelegramNotifier(
+                bot_token=settings.telegram_bot_token,
+                chat_id=settings.telegram_chat_id,
+            )
+            await notifier.notify_system_alert(
+                "Data Retention Failing",
+                f"Data retention job has failed {count} consecutive times",
+            )
+
+
+async def send_health_digest() -> None:
+    """Send a daily health digest via Telegram with operational statistics.
+
+    Executed daily at 06:00 UTC. Collects counts of active signals, today's
+    outcomes, candle data per timeframe, and any consecutive job failure
+    counts. Formats and sends as a Telegram message.
+
+    Creates its own database session. All exceptions are caught at the top
+    level to prevent scheduler crashes.
+    """
+    try:
+        from app.models.outcome import Outcome
+
+        settings = get_settings()
+
+        async with async_session_factory() as session:
+            # Count active signals
+            stmt = select(func.count()).select_from(Signal).where(
+                Signal.status == "active"
+            )
+            result = await session.execute(stmt)
+            active_signals = result.scalar() or 0
+
+            # Count today's outcomes
+            today_start = datetime.now(timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            stmt = select(func.count()).select_from(Outcome).where(
+                Outcome.detected_at >= today_start
+            )
+            result = await session.execute(stmt)
+            outcomes_today = result.scalar() or 0
+
+            # Count candles per timeframe
+            candle_counts: dict[str, int] = {}
+            for tf in ["M15", "H1", "H4", "D1"]:
+                stmt = select(func.count()).select_from(Candle).where(
+                    Candle.symbol == "XAUUSD",
+                    Candle.timeframe == tf,
+                )
+                result = await session.execute(stmt)
+                candle_counts[tf] = result.scalar() or 0
+
+            # Collect job failure counts
+            job_ids = [
+                "refresh_candles_M15",
+                "refresh_candles_H1",
+                "refresh_candles_H4",
+                "refresh_candles_D1",
+                "run_daily_backtests",
+                "run_signal_scanner",
+                "check_outcomes",
+                "run_data_retention",
+            ]
+            job_failures = {
+                jid: FailureTracker.get_count(jid) for jid in job_ids
+            }
+
+            stats = {
+                "active_signals": active_signals,
+                "outcomes_today": outcomes_today,
+                "candles_m15": candle_counts["M15"],
+                "candles_h1": candle_counts["H1"],
+                "candles_h4": candle_counts["H4"],
+                "candles_d1": candle_counts["D1"],
+                "job_failures": job_failures,
+            }
+
+            notifier = TelegramNotifier(
+                bot_token=settings.telegram_bot_token,
+                chat_id=settings.telegram_chat_id,
+            )
+            await notifier.notify_health_digest(stats)
+
+            logger.info(
+                "send_health_digest complete | active_signals={active} outcomes_today={outcomes}",
+                active=active_signals,
+                outcomes=outcomes_today,
+            )
+
+        FailureTracker.record_success("send_health_digest")
+
+    except Exception:
+        logger.exception("send_health_digest failed")
+        count = FailureTracker.record_failure("send_health_digest")
+        if FailureTracker.should_alert("send_health_digest"):
+            settings = get_settings()
+            notifier = TelegramNotifier(
+                bot_token=settings.telegram_bot_token,
+                chat_id=settings.telegram_chat_id,
+            )
+            await notifier.notify_system_alert(
+                "Health Digest Failing",
+                f"Health digest job has failed {count} consecutive times",
+            )

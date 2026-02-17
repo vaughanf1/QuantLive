@@ -15,7 +15,9 @@ from app.workers.jobs import (
     check_outcomes,
     refresh_candles,
     run_daily_backtests,
+    run_data_retention,
     run_signal_scanner,
+    send_health_digest,
 )
 
 scheduler = AsyncIOScheduler(
@@ -113,4 +115,22 @@ def register_jobs() -> None:
     )
     logger.info("Registered job: check_outcomes (every 30 seconds)")
 
-    logger.info("All {count} jobs registered", count=7)
+    scheduler.add_job(
+        run_data_retention,
+        trigger=CronTrigger(hour=3, minute=0, timezone="UTC"),
+        id="run_data_retention",
+        name="Run data retention",
+        replace_existing=True,
+    )
+    logger.info("Registered job: run_data_retention (daily at 03:00 UTC)")
+
+    scheduler.add_job(
+        send_health_digest,
+        trigger=CronTrigger(hour=6, minute=0, timezone="UTC"),
+        id="send_health_digest",
+        name="Send health digest",
+        replace_existing=True,
+    )
+    logger.info("Registered job: send_health_digest (daily at 06:00 UTC)")
+
+    logger.info("All {count} jobs registered", count=9)
