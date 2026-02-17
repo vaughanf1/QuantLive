@@ -12,16 +12,16 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 Phase: 4 of 7 (Signal Pipeline)
 Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-17 -- Completed 04-04-PLAN.md (Gold Intelligence Service)
+Last activity: 2026-02-17 -- Completed 04-03-PLAN.md (Risk Manager Service)
 
-Progress: [#############.......] 59% (13/22 plans)
+Progress: [##############......] 64% (14/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 4.3min
-- Total execution time: 0.9 hours
+- Total plans completed: 14
+- Average duration: 4.2min
+- Total execution time: 1.0 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [#############.......] 59% (13/22 plans)
 | 01-data-foundation | 3/3 | 24min | 8min |
 | 02-strategy-engine | 3/3 | 14min | 4.7min |
 | 03-backtesting-engine | 3/3 | 11min | 3.7min |
-| 04-signal-pipeline | 4/5 | 8min | 2min |
+| 04-signal-pipeline | 4/5 | 13min | 3.3min |
 
 **Recent Trend:**
-- Last 5 plans: 03-03 (5min), 04-01 (2min), 04-02 (2min), 04-03 (2min), 04-04 (2min)
-- Trend: accelerating, ~2min/plan
+- Last 5 plans: 04-01 (2min), 04-02 (2min), 04-03 (5min), 04-04 (2min)
+- Trend: stable, ~2-5min/plan
 
 *Updated after each plan completion*
 
@@ -84,6 +84,10 @@ Recent decisions affecting current work:
 - [04-01]: Backtest result fallback chain: 60-day -> 30-day -> any non-walk-forward
 - [04-02]: Dedup checks symbol + direction + active status within 4h window (not strategy-specific)
 - [04-02]: Bias detection is informational only -- appends note to reasoning, never rejects signals
+- [04-03]: Daily P&L derived from DB each check (not cached counter) to avoid stale state across days
+- [04-03]: ATR factor = baseline/current with 0.5x-1.5x clamp for volatility-adjusted sizing
+- [04-03]: PIP_VALUE = $0.10 for XAUUSD (consistent with backtester 03-01)
+- [04-03]: check() uses 1.0/1.0 default ATR until SignalPipeline provides real values
 - [04-04]: DXY correlation informational only -- divergence appends to reasoning, does not modify confidence
 - [04-04]: No session-based suppression -- all sessions allowed; overlap gets +5 confidence boost
 - [04-04]: Session label priority: "overlap" if active, else first active session, else "off_hours"
@@ -102,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17T17:37:48Z
-Stopped at: Completed 04-04-PLAN.md (Gold Intelligence Service)
+Last session: 2026-02-17T17:39:31Z
+Stopped at: Completed 04-03-PLAN.md (Risk Manager Service)
 Resume file: None
