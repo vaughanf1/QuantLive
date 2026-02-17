@@ -12,7 +12,8 @@ from app.strategies.base import (
     candles_to_dataframe,
 )
 
-# Concrete strategy imports will be added as strategies are implemented
+# Concrete strategy imports -- triggers auto-registration via __init_subclass__
+from app.strategies.liquidity_sweep import LiquiditySweepStrategy
 
 __all__ = [
     "BaseStrategy",
@@ -20,4 +21,5 @@ __all__ = [
     "Direction",
     "InsufficientDataError",
     "candles_to_dataframe",
+    "LiquiditySweepStrategy",
 ]
