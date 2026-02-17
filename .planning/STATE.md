@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** Deliver 1-2 high-conviction, statistically validated XAUUSD trade signals per day with full automation from generation through outcome tracking.
-**Current focus:** Phase 2 - Strategy Engine (COMPLETE)
+**Current focus:** Phase 3 - Backtesting Engine (In Progress)
 
 ## Current Position
 
-Phase: 2 of 7 (Strategy Engine)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-02-17 -- Completed 02-03-PLAN.md (Remaining Strategies + Registry Integration)
+Phase: 3 of 7 (Backtesting Engine)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-17 -- Completed 03-01-PLAN.md (Core Backtesting Components)
 
-Progress: [######..............] 27% (6/22 plans)
+Progress: [#######.............] 32% (7/22 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 6min
-- Total execution time: 0.6 hours
+- Total plans completed: 7
+- Average duration: 5.6min
+- Total execution time: 0.65 hours
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [######..............] 27% (6/22 plans)
 |-------|-------|-------|----------|
 | 01-data-foundation | 3/3 | 24min | 8min |
 | 02-strategy-engine | 3/3 | 14min | 4.7min |
+| 03-backtesting-engine | 1/3 | 3min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (7min), 02-01 (5min), 02-02 (4min), 02-03 (5min)
-- Trend: stable at ~5min/plan
+- Last 5 plans: 02-01 (5min), 02-02 (4min), 02-03 (5min), 03-01 (3min)
+- Trend: accelerating, ~4min/plan
 
 *Updated after each plan completion*
 
@@ -67,6 +68,11 @@ Recent decisions affecting current work:
 - [02-03]: Momentum confirmation uses next bar (i+1) to avoid lookahead bias
 - [02-03]: EMA spread widening uses simplified heuristic (no historical EMA storage)
 - [02-03]: Breakout triggers on first non-compressed bar after consolidation exits
+- [03-01]: SL always takes priority over TP when both could hit in same bar (conservative)
+- [03-01]: XAUUSD pip value = $0.10 price movement; MAX_BARS_FORWARD = 72 (3 days at H1)
+- [03-01]: Spread model returns tightest spread when multiple sessions overlap
+- [03-01]: profit_factor capped at 9999.9999 for Numeric(10,4) DB compatibility
+- [03-01]: BUY entry adjusted up by spread (ask), SELL SL checked against high + spread
 
 ### Pending Todos
 
@@ -75,13 +81,13 @@ None yet.
 ### Blockers/Concerns
 
 - Twelve Data free tier rate limits (800 req/day) may be insufficient -- design aggressive caching from Phase 1
-- vectorbt walk-forward API depth needs prototyping in Phase 3 -- fallback is manual pandas implementation
+- vectorbt walk-forward API depth needs prototyping in Phase 3 -- fallback is manual pandas implementation (03-01 used pure pandas, no vectorbt)
 - Economic calendar API selection unresolved -- evaluate during Phase 5 planning
 - Alembic requires PYTHONPATH set to project root when run from CLI (prefix with PYTHONPATH=.)
 - TWELVE_DATA_API_KEY still set to placeholder -- needs real key before live ingestion
 
 ## Session Continuity
 
-Last session: 2026-02-17T15:21:44Z
-Stopped at: Completed 02-03-PLAN.md (Remaining Strategies + Registry Integration) -- Phase 2 COMPLETE
+Last session: 2026-02-17T16:32:02Z
+Stopped at: Completed 03-01-PLAN.md (Core Backtesting Components)
 Resume file: None
