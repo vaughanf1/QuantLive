@@ -9,7 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from loguru import logger
 
-from app.workers.jobs import refresh_candles, run_daily_backtests
+from app.workers.jobs import refresh_candles, run_daily_backtests, run_signal_scanner
 
 scheduler = AsyncIOScheduler(
     jobstores={
@@ -86,4 +86,13 @@ def register_jobs() -> None:
     )
     logger.info("Registered job: run_daily_backtests (daily at 02:00 UTC)")
 
-    logger.info("All {count} jobs registered", count=5)
+    scheduler.add_job(
+        run_signal_scanner,
+        trigger=CronTrigger(minute=2, timezone="UTC"),
+        id="run_signal_scanner",
+        name="Run signal scanner",
+        replace_existing=True,
+    )
+    logger.info("Registered job: run_signal_scanner (every hour at :02 UTC)")
+
+    logger.info("All {count} jobs registered", count=6)

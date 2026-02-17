@@ -1,0 +1,202 @@
+"""Signal pipeline orchestrator: the heartbeat of the trading system.
+
+Wires StrategySelector, SignalGenerator, RiskManager, and GoldIntelligence
+into a sequential flow that runs every hour:
+
+    expire stale -> select strategy -> generate candidates ->
+    validate (R:R, confidence, dedup, bias) -> risk check ->
+    H4 confluence boost -> gold enrichment -> persist.
+
+Exports:
+    SignalPipeline  -- main orchestrator class
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+
+from loguru import logger
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.signal import Signal
+from app.models.strategy import Strategy as StrategyModel
+from app.services.gold_intelligence import GoldIntelligence
+from app.services.risk_manager import RiskManager
+from app.services.signal_generator import SignalGenerator
+from app.services.strategy_selector import StrategySelector
+
+
+class SignalPipeline:
+    """Orchestrates the full signal generation pipeline.
+
+    Flow: expire stale -> select strategy -> generate candidates ->
+          validate (R:R, confidence, dedup, bias) -> risk check ->
+          H4 confluence boost -> gold enrichment -> persist.
+    """
+
+    def __init__(
+        self,
+        selector: StrategySelector,
+        generator: SignalGenerator,
+        risk_manager: RiskManager,
+        gold_intel: GoldIntelligence,
+    ) -> None:
+        self.selector = selector
+        self.generator = generator
+        self.risk_manager = risk_manager
+        self.gold_intel = gold_intel
+
+    async def run(self, session: AsyncSession) -> list[Signal]:
+        """Execute the full signal pipeline.
+
+        Steps:
+            1. Expire stale signals
+            2. Select best strategy
+            3. Generate candidate signals
+            4. Validate candidates (R:R, confidence, dedup, bias)
+            5. Risk check (daily loss, concurrent limit, position sizing)
+            6. H4 confluence boost (+5 confidence if H4 EMA agrees)
+            7. DXY correlation (non-blocking, informational)
+            8. Gold intelligence enrichment (session metadata, overlap boost)
+            9. Persist approved signals to DB
+
+        Args:
+            session: Async database session.
+
+        Returns:
+            List of persisted Signal ORM objects.
+        """
+        # 1. Expire stale signals
+        expired_count = await self.generator.expire_stale_signals(session)
+        logger.info("Expired {} stale signal(s) before scan", expired_count)
+
+        # 2. Select best strategy
+        best = await self.selector.select_best(session)
+        if best is None:
+            logger.info(
+                "No qualifying strategy found, skipping signal generation"
+            )
+            return []
+
+        strategy_name = best.strategy_name
+        regime = best.regime
+
+        # 3. Generate candidates
+        candidates = await self.generator.generate(session, strategy_name)
+        if not candidates:
+            logger.info(
+                "No candidates from '{}', skipping", strategy_name
+            )
+            return []
+
+        # 4. Validate candidates
+        validated = await self.generator.validate(session, candidates)
+        if not validated:
+            logger.info("All candidates filtered out during validation")
+            return []
+
+        # 5. Risk check
+        risk_results = await self.risk_manager.check(session, validated)
+
+        # Filter to only approved candidates
+        approved_candidates = []
+        approved_sizes: dict[int, Decimal] = {}  # index -> position_size
+        for i, (candidate, risk_result) in enumerate(risk_results):
+            if risk_result.approved:
+                approved_candidates.append(candidate)
+                approved_sizes[len(approved_candidates) - 1] = (
+                    risk_result.position_size
+                )
+            else:
+                logger.info(
+                    "Candidate rejected by risk check: {}",
+                    risk_result.rejection_reason,
+                )
+
+        if not approved_candidates:
+            logger.info("All candidates rejected by risk manager")
+            return []
+
+        # 6. H4 confluence boost
+        for i, candidate in enumerate(approved_candidates):
+            has_confluence = await self.selector.check_h4_confluence(
+                session, candidate.direction.value
+            )
+            if has_confluence:
+                boosted = min(float(candidate.confidence) + 5, 100.0)
+                new_confidence = Decimal(str(round(boosted, 2)))
+                new_reasoning = candidate.reasoning + " | H4 confluence confirmed"
+                approved_candidates[i] = candidate.model_copy(
+                    update={
+                        "confidence": new_confidence,
+                        "reasoning": new_reasoning,
+                    }
+                )
+                logger.info(
+                    "H4 confluence boost: {} confidence {} -> {}",
+                    candidate.direction.value,
+                    candidate.confidence,
+                    new_confidence,
+                )
+
+        # 7. DXY correlation (non-blocking, informational)
+        dxy_info = await self.gold_intel.get_dxy_correlation(session)
+
+        # 8. Gold intelligence enrichment
+        enriched = self.gold_intel.enrich(approved_candidates, dxy_info)
+
+        # 9. Persist signals
+        # Look up strategy_id from Strategy table
+        strat_stmt = select(StrategyModel).where(
+            StrategyModel.name == strategy_name
+        )
+        strat_result = await session.execute(strat_stmt)
+        strategy_row = strat_result.scalar_one_or_none()
+
+        if strategy_row is None:
+            logger.error(
+                "Strategy '{}' not found in strategies table, cannot persist signals",
+                strategy_name,
+            )
+            return []
+
+        strategy_id = strategy_row.id
+
+        persisted: list[Signal] = []
+        for i, candidate in enumerate(enriched):
+            expires_at = self.generator.compute_expiry(candidate)
+
+            # Append position size to reasoning
+            position_size = approved_sizes.get(i)
+            reasoning = candidate.reasoning
+            if position_size is not None:
+                reasoning += f" | Position size: {position_size}"
+
+            signal = Signal(
+                strategy_id=strategy_id,
+                symbol=candidate.symbol,
+                timeframe=candidate.timeframe,
+                direction=candidate.direction.value,
+                entry_price=candidate.entry_price,
+                stop_loss=candidate.stop_loss,
+                take_profit_1=candidate.take_profit_1,
+                take_profit_2=candidate.take_profit_2,
+                risk_reward=candidate.risk_reward,
+                confidence=candidate.confidence,
+                reasoning=reasoning,
+                status="active",
+                expires_at=expires_at,
+            )
+            session.add(signal)
+            persisted.append(signal)
+
+        await session.commit()
+
+        logger.info(
+            "Pipeline complete: {} signal(s) generated from '{}' (regime={})",
+            len(persisted),
+            strategy_name,
+            regime.value,
+        )
+        return persisted

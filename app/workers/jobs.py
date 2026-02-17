@@ -234,3 +234,73 @@ async def run_daily_backtests() -> None:
 
     except Exception:
         logger.exception("run_daily_backtests failed")
+
+
+# Module-level variable for stale data detection (SIG-08)
+_last_scanned_ts: datetime | None = None
+
+
+async def run_signal_scanner() -> None:
+    """Run the signal pipeline to scan for new trade signals.
+
+    Executed at :02 every hour via APScheduler CronTrigger. Checks for new
+    H1 candle data before running the full pipeline to avoid duplicate
+    processing (SIG-08 stale data guard).
+
+    Creates its own database session. All exceptions are caught at the top
+    level to prevent scheduler crashes.
+    """
+    global _last_scanned_ts
+
+    try:
+        from app.services.strategy_selector import StrategySelector
+        from app.services.signal_generator import SignalGenerator
+        from app.services.risk_manager import RiskManager
+        from app.services.gold_intelligence import GoldIntelligence
+        from app.services.signal_pipeline import SignalPipeline
+
+        async with async_session_factory() as session:
+            # Stale data guard: check if there's a new H1 candle since last scan
+            stmt = (
+                select(Candle.timestamp)
+                .where(Candle.symbol == "XAUUSD", Candle.timeframe == "H1")
+                .order_by(Candle.timestamp.desc())
+                .limit(1)
+            )
+            result = await session.execute(stmt)
+            latest_candle_ts = result.scalar_one_or_none()
+
+            if latest_candle_ts is None:
+                logger.warning("run_signal_scanner: no H1 XAUUSD candles found, skipping")
+                return
+
+            if _last_scanned_ts is not None and latest_candle_ts == _last_scanned_ts:
+                logger.info(
+                    "run_signal_scanner: no new candle data since last scan "
+                    "(latest={}), skipping",
+                    latest_candle_ts,
+                )
+                return
+
+            _last_scanned_ts = latest_candle_ts
+            logger.info(
+                "run_signal_scanner: new candle data detected (ts={}), running pipeline",
+                latest_candle_ts,
+            )
+
+            # Instantiate services and run pipeline
+            selector = StrategySelector()
+            generator = SignalGenerator()
+            risk_manager = RiskManager()
+            gold_intel = GoldIntelligence()
+
+            pipeline = SignalPipeline(selector, generator, risk_manager, gold_intel)
+            signals = await pipeline.run(session)
+
+            logger.info(
+                "run_signal_scanner complete | signals_generated={}",
+                len(signals),
+            )
+
+    except Exception:
+        logger.exception("run_signal_scanner failed")
