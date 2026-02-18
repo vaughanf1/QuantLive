@@ -77,9 +77,13 @@ class CandleIngestor:
 
         # Twelve Data returns a dict with "code"/"message" on errors
         if isinstance(data, dict) and "code" in data:
-            raise RuntimeError(
-                f"Twelve Data API error {data.get('code')}: {data.get('message', 'unknown')}"
-            )
+            code = data.get("code")
+            msg = data.get("message", "unknown")
+            # Rate limit — don't retry, just return empty to avoid compounding
+            if code == 429:
+                logger.warning("Twelve Data rate limited: {}", msg)
+                return []
+            raise RuntimeError(f"Twelve Data API error {code}: {msg}")
 
         return list(data) if isinstance(data, (list, tuple)) else []
 

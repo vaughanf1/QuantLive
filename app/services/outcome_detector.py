@@ -54,6 +54,12 @@ class OutcomeDetector:
 
     PIP_VALUE = 0.10
     PRICE_ENDPOINT = "https://api.twelvedata.com/price"
+    CACHE_MAX_AGE_SECONDS = 300  # Fall back to cached price up to 5 min old
+
+    # Class-level price cache (persists across instances since jobs.py
+    # creates a new OutcomeDetector each cycle)
+    _cached_price: float | None = None
+    _cached_at: datetime | None = None
 
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
@@ -88,12 +94,8 @@ class OutcomeDetector:
         if not active_signals:
             return []
 
-        # 2. Fetch current price (gracefully skip on any failure)
-        try:
-            price = await self._fetch_current_price()
-        except Exception:
-            logger.warning("outcome_detector: price fetch failed after retries, skipping")
-            price = None
+        # 2. Fetch current price with cache fallback
+        price = await self._get_price_with_cache()
         if price is None:
             return []
 
@@ -147,8 +149,43 @@ class OutcomeDetector:
         return list(result.scalars().all())
 
     # ------------------------------------------------------------------
-    # Price fetching with retry
+    # Price fetching with cache fallback
     # ------------------------------------------------------------------
+
+    async def _get_price_with_cache(self) -> float | None:
+        """Get current price, falling back to cached price on API failure.
+
+        On success, updates the class-level cache. On failure, returns the
+        cached price if it's less than CACHE_MAX_AGE_SECONDS old. This means
+        the job almost never fails — brief API outages are invisible.
+        """
+        try:
+            price = await self._fetch_current_price()
+        except Exception:
+            logger.warning("outcome_detector: price fetch failed after retries")
+            price = None
+
+        if price is not None:
+            OutcomeDetector._cached_price = price
+            OutcomeDetector._cached_at = datetime.now(timezone.utc)
+            return price
+
+        # Fall back to cached price if fresh enough
+        if (
+            OutcomeDetector._cached_price is not None
+            and OutcomeDetector._cached_at is not None
+        ):
+            age = (datetime.now(timezone.utc) - OutcomeDetector._cached_at).total_seconds()
+            if age <= self.CACHE_MAX_AGE_SECONDS:
+                logger.info(
+                    "outcome_detector: using cached price {} (age={:.0f}s)",
+                    OutcomeDetector._cached_price,
+                    age,
+                )
+                return OutcomeDetector._cached_price
+
+        logger.warning("outcome_detector: no price available (API down, no cache)")
+        return None
 
     @retry(
         stop=stop_after_attempt(3),

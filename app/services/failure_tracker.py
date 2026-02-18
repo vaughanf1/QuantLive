@@ -29,7 +29,7 @@ class FailureTracker:
         # resets counter and alert flag
     """
 
-    ALERT_THRESHOLD: int = 3
+    ALERT_THRESHOLD: int = 6
     _counters: dict[str, int] = {}
     _alerted: dict[str, bool] = {}
 
