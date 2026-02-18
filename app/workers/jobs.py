@@ -61,7 +61,7 @@ async def refresh_candles(timeframe: str) -> None:
 
         FailureTracker.record_success(job_id)
 
-    except Exception:
+    except Exception as exc:
         logger.exception(
             "refresh_candles failed | timeframe={timeframe}",
             timeframe=timeframe,
@@ -73,9 +73,12 @@ async def refresh_candles(timeframe: str) -> None:
                 bot_token=settings.telegram_bot_token,
                 chat_id=settings.telegram_chat_id,
             )
+            err_type = type(exc).__name__
+            err_msg = str(exc)[:200]
             await notifier.notify_system_alert(
                 "Candle Refresh Failing",
-                f"{timeframe} refresh has failed {count} consecutive times",
+                f"{timeframe} refresh has failed {count} consecutive times\n\n"
+                f"<b>Error:</b> {err_type}: {err_msg}",
             )
 
 
@@ -345,7 +348,7 @@ async def run_signal_scanner() -> None:
 
         FailureTracker.record_success("run_signal_scanner")
 
-    except Exception:
+    except Exception as exc:
         logger.exception("run_signal_scanner failed")
         count = FailureTracker.record_failure("run_signal_scanner")
         if FailureTracker.should_alert("run_signal_scanner"):
@@ -354,9 +357,12 @@ async def run_signal_scanner() -> None:
                 bot_token=settings.telegram_bot_token,
                 chat_id=settings.telegram_chat_id,
             )
+            err_type = type(exc).__name__
+            err_msg = str(exc)[:200]
             await notifier.notify_system_alert(
                 "Signal Scanner Failing",
-                f"Signal scanner has failed {count} consecutive times",
+                f"Signal scanner has failed {count} consecutive times\n\n"
+                f"<b>Error:</b> {err_type}: {err_msg}",
             )
 
 
@@ -433,7 +439,7 @@ async def check_outcomes() -> None:
 
         FailureTracker.record_success("check_outcomes")
 
-    except Exception:
+    except Exception as exc:
         logger.exception("check_outcomes failed")
         count = FailureTracker.record_failure("check_outcomes")
         if FailureTracker.should_alert("check_outcomes"):
@@ -442,9 +448,12 @@ async def check_outcomes() -> None:
                 bot_token=settings.telegram_bot_token,
                 chat_id=settings.telegram_chat_id,
             )
+            err_type = type(exc).__name__
+            err_msg = str(exc)[:200]
             await notifier.notify_system_alert(
                 "Outcome Detection Failing",
-                f"Outcome detection has failed {count} consecutive times",
+                f"Outcome detection has failed {count} consecutive times\n\n"
+                f"<b>Error:</b> {err_type}: {err_msg}",
             )
 
 
@@ -473,7 +482,7 @@ async def run_data_retention() -> None:
 
         FailureTracker.record_success("run_data_retention")
 
-    except Exception:
+    except Exception as exc:
         logger.exception("run_data_retention failed")
         count = FailureTracker.record_failure("run_data_retention")
         if FailureTracker.should_alert("run_data_retention"):
@@ -482,9 +491,12 @@ async def run_data_retention() -> None:
                 bot_token=settings.telegram_bot_token,
                 chat_id=settings.telegram_chat_id,
             )
+            err_type = type(exc).__name__
+            err_msg = str(exc)[:200]
             await notifier.notify_system_alert(
                 "Data Retention Failing",
-                f"Data retention job has failed {count} consecutive times",
+                f"Data retention job has failed {count} consecutive times\n\n"
+                f"<b>Error:</b> {err_type}: {err_msg}",
             )
 
 
@@ -570,7 +582,7 @@ async def send_health_digest() -> None:
 
         FailureTracker.record_success("send_health_digest")
 
-    except Exception:
+    except Exception as exc:
         logger.exception("send_health_digest failed")
         count = FailureTracker.record_failure("send_health_digest")
         if FailureTracker.should_alert("send_health_digest"):
@@ -579,7 +591,10 @@ async def send_health_digest() -> None:
                 bot_token=settings.telegram_bot_token,
                 chat_id=settings.telegram_chat_id,
             )
+            err_type = type(exc).__name__
+            err_msg = str(exc)[:200]
             await notifier.notify_system_alert(
                 "Health Digest Failing",
-                f"Health digest job has failed {count} consecutive times",
+                f"Health digest job has failed {count} consecutive times\n\n"
+                f"<b>Error:</b> {err_type}: {err_msg}",
             )
