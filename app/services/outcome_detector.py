@@ -88,10 +88,13 @@ class OutcomeDetector:
         if not active_signals:
             return []
 
-        # 2. Fetch current price
-        price = await self._fetch_current_price()
+        # 2. Fetch current price (gracefully skip on any failure)
+        try:
+            price = await self._fetch_current_price()
+        except Exception:
+            logger.warning("outcome_detector: price fetch failed after retries, skipping")
+            price = None
         if price is None:
-            logger.warning("outcome_detector: price fetch failed, skipping evaluation")
             return []
 
         # 3. Get current spread
