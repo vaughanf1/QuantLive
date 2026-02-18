@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +34,20 @@ class Settings(BaseSettings):
     # Telegram (optional -- system works without these configured)
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+
+    @model_validator(mode="after")
+    def normalize_database_url(self) -> "Settings":
+        """Ensure DATABASE_URL uses the asyncpg driver.
+
+        Railway and other providers supply postgresql:// but SQLAlchemy async
+        requires postgresql+asyncpg://.
+        """
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            self.database_url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgres://"):
+            self.database_url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        return self
 
 
 @lru_cache
