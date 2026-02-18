@@ -6,9 +6,8 @@
   },
   "deploy": {
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 180,
+    "healthcheckTimeout": 300,
     "restartPolicyType": "ALWAYS",
-    "restartPolicyMaxRetries": 10,
-    "preDeployCommand": "PYTHONPATH=/app alembic upgrade head"
+    "restartPolicyMaxRetries": 10
   }
 }
