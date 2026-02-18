@@ -81,7 +81,7 @@ class CandleIngestor:
                 f"Twelve Data API error {data.get('code')}: {data.get('message', 'unknown')}"
             )
 
-        return data if isinstance(data, list) else []
+        return list(data) if isinstance(data, (list, tuple)) else []
 
     async def fetch_candles(
         self,
@@ -120,7 +120,9 @@ class CandleIngestor:
 
         candles = []
         for row in raw:
-            ts = datetime.strptime(row["datetime"], "%Y-%m-%d %H:%M:%S").replace(
+            dt_str = row["datetime"]
+            fmt = "%Y-%m-%d %H:%M:%S" if " " in dt_str else "%Y-%m-%d"
+            ts = datetime.strptime(dt_str, fmt).replace(
                 tzinfo=timezone.utc
             )
             candles.append(
