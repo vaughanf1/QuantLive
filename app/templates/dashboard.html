@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantLive — Dashboard</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-primary: #06080f;
+            --bg-card: rgba(14, 18, 30, 0.75);
+            --bg-card-hover: rgba(20, 26, 42, 0.85);
+            --border: rgba(56, 189, 248, 0.08);
+            --border-active: rgba(56, 189, 248, 0.2);
+            --accent: #38bdf8;
+            --accent-dim: rgba(56, 189, 248, 0.15);
+            --accent-glow: rgba(56, 189, 248, 0.06);
+            --green: #34d399;
+            --green-dim: rgba(52, 211, 153, 0.12);
+            --red: #f87171;
+            --red-dim: rgba(248, 113, 113, 0.12);
+            --amber: #fbbf24;
+            --amber-dim: rgba(251, 191, 36, 0.12);
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-dim: #475569;
+            --matrix-color: rgba(56, 189, 248, 0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* === MATRIX RAIN CANVAS === */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.6;
+        }
+
+        /* === MAIN LAYOUT === */
+        .app {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+        }
+
+        /* === HEADER === */
+        .header {
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            background: rgba(6, 8, 15, 0.8);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #fff;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .badge {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 4px 10px;
+            border-radius: 100px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 4px;
+        }
+
+        .nav-link {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--text-primary);
+            background: var(--accent-dim);
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+
+        .status-dot.degraded {
+            background: var(--amber);
+            box-shadow: 0 0 8px var(--amber);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        /* === CONTENT === */
+        .content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 32px;
+        }
+
+        /* === STATS ROW === */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-active);
+            transform: translateY(-1px);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: -1px;
+        }
+
+        .stat-value.accent { color: var(--accent); }
+        .stat-value.green { color: var(--green); }
+        .stat-value.red { color: var(--red); }
+        .stat-value.amber { color: var(--amber); }
+
+        .stat-sub {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* === GRID LAYOUT === */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .grid-3-1 {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        /* === CARDS === */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+
+        .card:hover {
+            border-color: var(--border-active);
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+
+        .card-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 100px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .card-badge.green {
+            background: var(--green-dim);
+            color: var(--green);
+        }
+
+        .card-badge.red {
+            background: var(--red-dim);
+            color: var(--red);
+        }
+
+        .card-badge.amber {
+            background: var(--amber-dim);
+            color: var(--amber);
+        }
+
+        .card-body {
+            padding: 16px 20px;
+        }
+
+        /* === TABLES === */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table td {
+            font-size: 13px;
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.03);
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+        }
+
+        .table tr:hover td {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* === SIGNAL DIRECTION TAGS === */
+        .tag {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .tag.buy {
+            background: var(--green-dim);
+            color: var(--green);
+        }
+
+        .tag.sell {
+            background: var(--red-dim);
+            color: var(--red);
+        }
+
+        /* === RESULT TAGS === */
+        .result-tag {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .result-tag.tp { background: var(--green-dim); color: var(--green); }
+        .result-tag.sl { background: var(--red-dim); color: var(--red); }
+        .result-tag.active { background: var(--accent-dim); color: var(--accent); }
+        .result-tag.expired { background: rgba(100, 116, 139, 0.15); color: #64748b; }
+
+        /* === JOB STATUS === */
+        .job-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.03);
+        }
+
+        .job-row:last-child { border-bottom: none; }
+
+        .job-name {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .job-next {
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-dim);
+        }
+
+        /* === STRATEGY BARS === */
+        .strategy-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.03);
+        }
+
+        .strategy-item:last-child { border-bottom: none; }
+
+        .strategy-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .strategy-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .strategy-wr {
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .bar-track {
+            width: 100%;
+            height: 4px;
+            border-radius: 4px;
+            background: rgba(56, 189, 248, 0.06);
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--accent), #7dd3fc);
+            transition: width 0.6s ease;
+        }
+
+        .bar-fill.degraded {
+            background: linear-gradient(90deg, var(--amber), #fcd34d);
+        }
+
+        /* === EMPTY STATE === */
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 13px;
+        }
+
+        .empty-state .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+            opacity: 0.3;
+        }
+
+        /* === FOOTER === */
+        .footer {
+            padding: 16px 32px;
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+            border-top: 1px solid var(--border);
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 1200px) {
+            .stats-row { grid-template-columns: repeat(3, 1fr); }
+            .grid-2, .grid-3-1 { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .header { padding: 14px 16px; flex-wrap: wrap; gap: 12px; }
+            .content { padding: 16px; }
+            .nav-links { display: none; }
+        }
+
+        /* === LOADING SHIMMER === */
+        .shimmer {
+            background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        /* === SCROLLBAR === */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.15);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(56, 189, 248, 0.25);
+        }
+    </style>
+</head>
+<body>
+
+<!-- MATRIX RAIN BACKGROUND -->
+<canvas id="matrix-canvas"></canvas>
+
+<div class="app">
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">Quant<span>Live</span></div>
+            <div class="badge">XAUUSD</div>
+        </div>
+        <div class="header-right">
+            <nav class="nav-links">
+                <a href="/dashboard/" class="nav-link active">Dashboard</a>
+                <a href="/chart/" class="nav-link">Chart</a>
+            </nav>
+            <div class="system-status">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="system-label">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="content">
+
+        <!-- STAT CARDS -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-label">Active Signals</div>
+                <div class="stat-value accent" id="active-signals">--</div>
+                <div class="stat-sub" id="signals-today">-- today</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-value green" id="win-rate">--%</div>
+                <div class="stat-sub" id="win-loss">-- W / -- L</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total P&L</div>
+                <div class="stat-value" id="total-pnl">-- pips</div>
+                <div class="stat-sub" id="total-signals">-- signals</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Uptime</div>
+                <div class="stat-value accent" id="uptime">--</div>
+                <div class="stat-sub" id="db-status">DB: --</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last Data</div>
+                <div class="stat-value accent" id="last-candle" style="font-size: 18px;">--</div>
+                <div class="stat-sub" id="scheduler-status">Scheduler: --</div>
+            </div>
+        </div>
+
+        <!-- SIGNALS TABLE + STRATEGIES -->
+        <div class="grid-3-1">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Recent Signals</div>
+                    <div class="card-badge green" id="signal-count">0</div>
+                </div>
+                <div class="card-body" style="padding: 0; overflow-x: auto;">
+                    <table class="table" id="signals-table">
+                        <thead>
+                            <tr>
+                                <th>Dir</th>
+                                <th>Entry</th>
+                                <th>SL</th>
+                                <th>TP1</th>
+                                <th>TP2</th>
+                                <th>R:R</th>
+                                <th>Conf</th>
+                                <th>Strategy</th>
+                                <th>Result</th>
+                                <th>P&L</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="signals-body">
+                        </tbody>
+                    </table>
+                    <div class="empty-state" id="signals-empty" style="display: none;">
+                        <div class="icon">~</div>
+                        Awaiting first signal...
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Strategies</div>
+                    <div class="card-badge green" id="strategy-count">0</div>
+                </div>
+                <div class="card-body" id="strategies-body">
+                    <div class="empty-state" id="strategies-empty">
+                        <div class="icon">~</div>
+                        No performance data yet
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- JOBS -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Scheduler Jobs</div>
+                <div class="card-badge green" id="jobs-count">0</div>
+            </div>
+            <div class="card-body" style="padding: 0; overflow-x: auto;">
+                <table class="table" id="jobs-table">
+                    <thead>
+                        <tr>
+                            <th>Job</th>
+                            <th>Trigger</th>
+                            <th>Next Run</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="footer">
+        <span id="last-refresh">Refreshes every 30s</span>
+    </footer>
+</div>
+
+<script>
+// ============================
+// MATRIX RAIN ANIMATION
+// ============================
+(function initMatrix() {
+    const canvas = document.getElementById('matrix-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let w, h, columns, drops;
+
+    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF<>/{}[]=$#@!%^&*()';
+    const charArr = chars.split('');
+    const fontSize = 13;
+
+    function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+        columns = Math.floor(w / fontSize);
+        drops = new Array(columns).fill(1).map(() => Math.random() * h / fontSize | 0);
+    }
+
+    function draw() {
+        ctx.fillStyle = 'rgba(6, 8, 15, 0.06)';
+        ctx.fillRect(0, 0, w, h);
+
+        for (let i = 0; i < drops.length; i++) {
+            const char = charArr[Math.random() * charArr.length | 0];
+            const x = i * fontSize;
+            const y = drops[i] * fontSize;
+
+            // Head of the drop is brighter
+            const alpha = 0.05 + Math.random() * 0.08;
+            ctx.fillStyle = `rgba(56, 189, 248, ${alpha})`;
+            ctx.font = `${fontSize}px 'JetBrains Mono', monospace`;
+            ctx.fillText(char, x, y);
+
+            // Brighter leading character
+            if (Math.random() > 0.96) {
+                ctx.fillStyle = `rgba(125, 211, 252, 0.25)`;
+                ctx.fillText(char, x, y);
+            }
+
+            if (y > h && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i]++;
+        }
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+    setInterval(draw, 45);
+})();
+
+
+// ============================
+// DASHBOARD DATA
+// ============================
+function formatUptime(seconds) {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+}
+
+function formatTime(isoStr) {
+    if (!isoStr) return '--';
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDateTime(isoStr) {
+    if (!isoStr) return '--';
+    const d = new Date(isoStr);
+    const month = d.toLocaleString('en-GB', { month: 'short' });
+    const day = d.getDate();
+    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return `${day} ${month} ${time}`;
+}
+
+function resultTag(result, status) {
+    if (!result && status === 'active') return '<span class="result-tag active">ACTIVE</span>';
+    if (!result) return '<span class="result-tag expired">PENDING</span>';
+    if (result === 'tp1_hit') return '<span class="result-tag tp">TP1</span>';
+    if (result === 'tp2_hit') return '<span class="result-tag tp">TP2</span>';
+    if (result === 'sl_hit') return '<span class="result-tag sl">SL</span>';
+    if (result === 'expired') return '<span class="result-tag expired">EXP</span>';
+    return `<span class="result-tag expired">${result}</span>`;
+}
+
+function pnlDisplay(pnl) {
+    if (pnl === null || pnl === undefined) return '--';
+    const sign = pnl >= 0 ? '+' : '';
+    const color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    return `<span style="color: ${color}">${sign}${pnl.toFixed(1)}</span>`;
+}
+
+async function refreshDashboard() {
+    try {
+        const resp = await fetch('/dashboard/data');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+
+        // --- System ---
+        const sys = data.system;
+        const dot = document.getElementById('status-dot');
+        const label = document.getElementById('system-label');
+        if (sys.status === 'operational') {
+            dot.className = 'status-dot';
+            label.textContent = 'OPERATIONAL';
+        } else {
+            dot.className = 'status-dot degraded';
+            label.textContent = 'DEGRADED';
+        }
+        document.getElementById('uptime').textContent = formatUptime(sys.uptime_seconds);
+        document.getElementById('db-status').textContent = `DB: ${sys.database}`;
+        document.getElementById('scheduler-status').textContent = `Scheduler: ${sys.scheduler}`;
+        document.getElementById('last-candle').textContent = sys.last_candle ? formatDateTime(sys.last_candle) : 'No data yet';
+
+        // --- Signal stats ---
+        const sig = data.signals;
+        document.getElementById('active-signals').textContent = sig.active;
+        document.getElementById('signals-today').textContent = `${sig.today} today`;
+        document.getElementById('total-signals').textContent = `${sig.total} total`;
+        document.getElementById('signal-count').textContent = sig.recent.length;
+
+        // --- Performance ---
+        const perf = data.performance;
+        document.getElementById('win-rate').textContent = `${perf.win_rate}%`;
+        document.getElementById('win-rate').className = `stat-value ${perf.win_rate >= 50 ? 'green' : 'red'}`;
+        document.getElementById('win-loss').textContent = `${perf.wins}W / ${perf.losses}L`;
+
+        const pnlEl = document.getElementById('total-pnl');
+        const pnlSign = perf.total_pnl >= 0 ? '+' : '';
+        pnlEl.textContent = `${pnlSign}${perf.total_pnl} pips`;
+        pnlEl.className = `stat-value ${perf.total_pnl >= 0 ? 'green' : 'red'}`;
+
+        // --- Signals table ---
+        const tbody = document.getElementById('signals-body');
+        const empty = document.getElementById('signals-empty');
+        if (sig.recent.length === 0) {
+            tbody.innerHTML = '';
+            empty.style.display = 'block';
+        } else {
+            empty.style.display = 'none';
+            tbody.innerHTML = sig.recent.map(s => `
+                <tr>
+                    <td><span class="tag ${s.direction.toLowerCase()}">${s.direction}</span></td>
+                    <td>${s.entry.toFixed(2)}</td>
+                    <td>${s.sl.toFixed(2)}</td>
+                    <td>${s.tp1.toFixed(2)}</td>
+                    <td>${s.tp2.toFixed(2)}</td>
+                    <td>${s.rr.toFixed(1)}</td>
+                    <td>${s.confidence.toFixed(0)}%</td>
+                    <td style="color: var(--text-secondary); font-size: 11px;">${s.strategy}</td>
+                    <td>${resultTag(s.result, s.status)}</td>
+                    <td>${pnlDisplay(s.pnl)}</td>
+                    <td style="color: var(--text-dim); font-size: 11px;">${formatDateTime(s.created)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // --- Strategies ---
+        const stratBody = document.getElementById('strategies-body');
+        const stratEmpty = document.getElementById('strategies-empty');
+        document.getElementById('strategy-count').textContent = data.strategies.length;
+        if (data.strategies.length === 0) {
+            stratBody.innerHTML = '';
+            stratBody.appendChild(stratEmpty);
+        } else {
+            stratEmpty.style.display = 'none';
+            stratBody.innerHTML = data.strategies.map(st => `
+                <div class="strategy-item">
+                    <div class="strategy-top">
+                        <div class="strategy-name">
+                            ${st.name}
+                            ${st.is_degraded ? '<span class="card-badge amber" style="margin-left: 6px; font-size: 9px;">DEGRADED</span>' : ''}
+                        </div>
+                        <div class="strategy-wr">${(st.win_rate * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill ${st.is_degraded ? 'degraded' : ''}" style="width: ${Math.min(st.win_rate * 100, 100)}%"></div>
+                    </div>
+                    <div style="display: flex; gap: 16px; margin-top: 6px;">
+                        <span style="font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">PF ${st.profit_factor.toFixed(2)}</span>
+                        <span style="font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">R:R ${st.avg_rr.toFixed(2)}</span>
+                        <span style="font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">${st.total_signals} signals</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- Jobs ---
+        const jobsBody = document.getElementById('jobs-body');
+        document.getElementById('jobs-count').textContent = data.jobs.length;
+        jobsBody.innerHTML = data.jobs.map(j => `
+            <tr>
+                <td style="color: var(--text-primary);">${j.name}</td>
+                <td style="font-size: 11px;">${j.trigger}</td>
+                <td style="font-size: 11px;">${j.next_run ? formatDateTime(j.next_run) : '--'}</td>
+                <td><span class="result-tag active">SCHEDULED</span></td>
+            </tr>
+        `).join('');
+
+        // --- Last refresh ---
+        const now = new Date();
+        document.getElementById('last-refresh').textContent =
+            `Last refresh: ${now.toLocaleTimeString('en-GB')} · Auto-refreshes every 30s`;
+
+    } catch (err) {
+        console.error('Dashboard refresh failed:', err);
+        document.getElementById('status-dot').className = 'status-dot degraded';
+        document.getElementById('system-label').textContent = 'CONNECTION ERROR';
+    }
+}
+
+// Initial load
+refreshDashboard();
+
+// Auto-refresh every 30s
+setInterval(refreshDashboard, 30000);
+</script>
+
+</body>
+</html>
