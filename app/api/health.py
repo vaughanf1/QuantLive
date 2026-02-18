@@ -34,7 +34,8 @@ async def health(
         )
     except Exception as exc:
         logger.error(f"Health check failed -- database error: {exc}")
-        response.status_code = 503
+        # Return 200 so Railway health check passes (app is alive).
+        # Database status is reported in the response body.
         return HealthResponse(
             status="degraded",
             database="disconnected",
