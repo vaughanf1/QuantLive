@@ -31,6 +31,9 @@ from tenacity import (
     wait_exponential,
 )
 
+# HTTP 429 means we've hit the rate limit -- retrying just burns more quota
+_RETRYABLE_ERRORS = (httpx.ConnectError,)
+
 from app.models.outcome import Outcome
 from app.models.signal import Signal
 from app.services.performance_tracker import PerformanceTracker
@@ -147,13 +150,14 @@ class OutcomeDetector:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError)),
+        retry=retry_if_exception_type(_RETRYABLE_ERRORS),
     )
     async def _fetch_current_price(self) -> float | None:
         """Fetch latest XAUUSD bid price from Twelve Data /price endpoint.
 
         Uses httpx async client with tenacity retry (3 attempts, exponential
-        backoff). Returns price as float, or None on failure.
+        backoff for connection errors only). HTTP errors like 429 rate limits
+        are not retried to avoid compounding quota usage.
 
         Endpoint: GET /price?symbol=XAU/USD&apikey=...
         Response: {"price": "2650.45"}
@@ -175,9 +179,15 @@ class OutcomeDetector:
                     return None
 
                 return float(data["price"])
-        except (httpx.HTTPStatusError, httpx.ConnectError):
-            # Let tenacity retry handle these
+        except httpx.ConnectError:
+            # Let tenacity retry handle connection failures
             raise
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "outcome_detector: price API returned HTTP {status}",
+                status=exc.response.status_code,
+            )
+            return None
         except Exception:
             logger.exception("outcome_detector: price fetch error")
             return None

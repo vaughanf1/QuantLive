@@ -106,14 +106,14 @@ def register_jobs() -> None:
 
     scheduler.add_job(
         check_outcomes,
-        trigger=IntervalTrigger(seconds=30),
+        trigger=IntervalTrigger(seconds=90),
         id="check_outcomes",
         name="Check signal outcomes",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
     )
-    logger.info("Registered job: check_outcomes (every 30 seconds)")
+    logger.info("Registered job: check_outcomes (every 90 seconds)")
 
     scheduler.add_job(
         run_data_retention,
