@@ -98,6 +98,39 @@ async def status(
     )
 
 
+@router.post("/debug/seed-strategies")
+async def debug_seed_strategies():
+    """Seed the strategies table with all registered strategies."""
+    try:
+        from app.database import async_session_factory
+        from app.models.strategy import Strategy
+        from sqlalchemy import select
+
+        # Import to trigger registration
+        from app.strategies.base import BaseStrategy  # noqa: F401
+        import app.strategies.liquidity_sweep  # noqa: F401
+        import app.strategies.trend_continuation  # noqa: F401
+        import app.strategies.breakout_expansion  # noqa: F401
+
+        registry = BaseStrategy.get_registry()
+
+        async with async_session_factory() as session:
+            existing = await session.execute(select(Strategy))
+            existing_names = {s.name for s in existing.scalars().all()}
+
+            created = []
+            for name in registry:
+                if name not in existing_names:
+                    session.add(Strategy(name=name, is_active=True))
+                    created.append(name)
+
+            await session.commit()
+
+            return {"status": "ok", "created": created, "existing": list(existing_names)}
+    except Exception as exc:
+        return {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+
+
 @router.post("/debug/create-tables")
 async def debug_create_tables():
     """Create all database tables directly (bypasses Alembic)."""
