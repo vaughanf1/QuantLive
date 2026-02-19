@@ -113,19 +113,18 @@ class TelegramNotifier:
         """
         arrow = "\u2B06\uFE0F" if signal.direction == "BUY" else "\u2B07\uFE0F"
 
-        # Calculate pip distances (XAUUSD: 1 pip = $0.10)
-        pip = 0.10
+        # Calculate price distances in dollars
         entry = float(signal.entry_price)
-        sl_pips = round(abs(entry - float(signal.stop_loss)) / pip, 1)
-        tp1_pips = round(abs(float(signal.take_profit_1) - entry) / pip, 1)
-        tp2_pips = round(abs(float(signal.take_profit_2) - entry) / pip, 1)
+        sl_dist = round(abs(entry - float(signal.stop_loss)), 2)
+        tp1_dist = round(abs(float(signal.take_profit_1) - entry), 2)
+        tp2_dist = round(abs(float(signal.take_profit_2) - entry), 2)
 
         return (
             f"{arrow} <b>XAUUSD {signal.direction}</b>\n\n"
             f"<b>Entry:</b> {signal.entry_price}\n"
-            f"<b>Stop Loss:</b> {signal.stop_loss} ({sl_pips} pips)\n"
-            f"<b>TP1:</b> {signal.take_profit_1} ({tp1_pips} pips)\n"
-            f"<b>TP2:</b> {signal.take_profit_2} ({tp2_pips} pips)\n"
+            f"<b>Stop Loss:</b> {signal.stop_loss} (${sl_dist})\n"
+            f"<b>TP1:</b> {signal.take_profit_1} (${tp1_dist})\n"
+            f"<b>TP2:</b> {signal.take_profit_2} (${tp2_dist})\n"
             f"<b>R:R:</b> {signal.risk_reward}\n"
             f"<b>Confidence:</b> {signal.confidence}%\n"
             f"<b>Strategy:</b> {strategy_name}\n\n"
