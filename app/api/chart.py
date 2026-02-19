@@ -59,29 +59,32 @@ async def get_chart_candles(
     Candles are returned in chronological order (oldest first) as required
     by TradingView Lightweight Charts.
     """
-    query = (
-        select(Candle)
-        .where(Candle.symbol == "XAUUSD")
-        .where(Candle.timeframe == "H1")
-        .order_by(Candle.timestamp.desc())
-        .limit(limit)
-    )
-    result = await session.execute(query)
-    candles = result.scalars().all()
+    try:
+        query = (
+            select(Candle)
+            .where(Candle.symbol == "XAUUSD")
+            .where(Candle.timeframe == "H1")
+            .order_by(Candle.timestamp.desc())
+            .limit(limit)
+        )
+        result = await session.execute(query)
+        candles = result.scalars().all()
 
-    # Reverse to chronological order (oldest first)
-    candles.reverse()
+        # Reverse to chronological order (oldest first)
+        candles.reverse()
 
-    return [
-        {
-            "time": _to_unix_seconds(c.timestamp),
-            "open": float(c.open),
-            "high": float(c.high),
-            "low": float(c.low),
-            "close": float(c.close),
-        }
-        for c in candles
-    ]
+        return [
+            {
+                "time": _to_unix_seconds(c.timestamp),
+                "open": float(c.open),
+                "high": float(c.high),
+                "low": float(c.low),
+                "close": float(c.close),
+            }
+            for c in candles
+        ]
+    except Exception:
+        return []
 
 
 @router.get("/signals")
@@ -94,30 +97,33 @@ async def get_chart_signals(
     Each signal includes entry/SL/TP prices, direction, outcome color,
     and timing information for marker placement.
     """
-    query = (
-        select(Signal, Outcome)
-        .outerjoin(Outcome, Signal.id == Outcome.signal_id)
-        .order_by(Signal.created_at.desc())
-        .limit(limit)
-    )
-    result = await session.execute(query)
-    rows = result.all()
-
-    signals = []
-    for signal, outcome in rows:
-        result_str = outcome.result if outcome else None
-        signals.append(
-            {
-                "time": _to_unix_seconds(signal.created_at),
-                "direction": signal.direction,
-                "entry_price": float(signal.entry_price),
-                "stop_loss": float(signal.stop_loss),
-                "take_profit_1": float(signal.take_profit_1),
-                "take_profit_2": float(signal.take_profit_2),
-                "status": signal.status,
-                "outcome_color": _outcome_color(result_str, signal.status),
-                "confidence": float(signal.confidence),
-            }
+    try:
+        query = (
+            select(Signal, Outcome)
+            .outerjoin(Outcome, Signal.id == Outcome.signal_id)
+            .order_by(Signal.created_at.desc())
+            .limit(limit)
         )
+        result = await session.execute(query)
+        rows = result.all()
 
-    return signals
+        signals = []
+        for signal, outcome in rows:
+            result_str = outcome.result if outcome else None
+            signals.append(
+                {
+                    "time": _to_unix_seconds(signal.created_at),
+                    "direction": signal.direction,
+                    "entry_price": float(signal.entry_price),
+                    "stop_loss": float(signal.stop_loss),
+                    "take_profit_1": float(signal.take_profit_1),
+                    "take_profit_2": float(signal.take_profit_2),
+                    "status": signal.status,
+                    "outcome_color": _outcome_color(result_str, signal.status),
+                    "confidence": float(signal.confidence),
+                }
+            )
+
+        return signals
+    except Exception:
+        return []
