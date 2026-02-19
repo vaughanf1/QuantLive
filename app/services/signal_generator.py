@@ -17,9 +17,9 @@ from app.models.signal import Signal
 # Configuration constants
 # ---------------------------------------------------------------------------
 
-MIN_RR: float = 2.0  # Minimum risk:reward ratio (1:2)
-MIN_CONFIDENCE: float = 65.0  # Minimum confidence threshold (%)
-DEDUP_WINDOW_HOURS: int = 4  # Same-direction dedup window (hours)
+MIN_RR: float = 1.5  # Minimum risk:reward ratio (1:1.5)
+MIN_CONFIDENCE: float = 55.0  # Minimum confidence threshold (%)
+DEDUP_WINDOW_HOURS: int = 2  # Same-direction dedup window (hours)
 EXPIRY_HOURS: dict[str, int] = {
     "M15": 4,   # Scalp: 4 hours
     "H1": 8,    # Intraday: 8 hours

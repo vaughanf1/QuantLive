@@ -25,7 +25,7 @@ from app.strategies.base import CandidateSignal
 # ---------------------------------------------------------------------------
 
 RISK_PER_TRADE: float = 0.01  # 1% of account per trade
-MAX_CONCURRENT_SIGNALS: int = 2
+MAX_CONCURRENT_SIGNALS: int = 3
 DAILY_LOSS_LIMIT_PCT: float = 0.02  # 2% daily drawdown limit
 PIP_VALUE: float = 0.10  # XAUUSD: $0.10 price movement per pip
 ATR_FACTOR_FLOOR: float = 0.5  # minimum position size multiplier
