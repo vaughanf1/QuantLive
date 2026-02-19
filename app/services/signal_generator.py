@@ -19,6 +19,8 @@ from app.models.signal import Signal
 
 MIN_RR: float = 1.5  # Minimum risk:reward ratio (1:1.5)
 MIN_CONFIDENCE: float = 55.0  # Minimum confidence threshold (%)
+MAX_SL_PIPS: float = 250.0  # Max stop loss distance (pips); skip trade if wider
+PIP_VALUE: float = 0.10  # XAUUSD: $0.10 price movement per pip
 DEDUP_WINDOW_HOURS: int = 2  # Same-direction dedup window (hours)
 EXPIRY_HOURS: dict[str, int] = {
     "M15": 4,   # Scalp: 4 hours
@@ -160,7 +162,18 @@ class SignalGenerator:
                 )
                 continue
 
-            # --- Filter 2: Confidence threshold (SIG-04) ---
+            # --- Filter 2: Max SL distance ---
+            sl_dist = abs(float(candidate.entry_price) - float(candidate.stop_loss))
+            sl_pips = sl_dist / PIP_VALUE
+            if sl_pips > MAX_SL_PIPS:
+                logger.info(
+                    "Signal rejected: SL {:.0f} pips exceeds max {:.0f} pips",
+                    sl_pips,
+                    MAX_SL_PIPS,
+                )
+                continue
+
+            # --- Filter 3: Confidence threshold (SIG-04) ---
             conf = float(candidate.confidence)
             if conf < MIN_CONFIDENCE:
                 logger.info(
