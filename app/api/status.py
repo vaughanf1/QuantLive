@@ -98,6 +98,25 @@ async def status(
     )
 
 
+@router.post("/debug/backfill/{timeframe}")
+async def debug_backfill(timeframe: str, outputsize: int = 5000):
+    """Force a full historical backfill for a timeframe (ignores existing data)."""
+    try:
+        from app.config import get_settings
+        from app.database import async_session_factory
+        from app.services.candle_ingestor import CandleIngestor
+
+        settings = get_settings()
+        ingestor = CandleIngestor(api_key=settings.twelve_data_api_key)
+
+        async with async_session_factory() as session:
+            candles = await ingestor.fetch_candles("XAUUSD", timeframe, outputsize=outputsize)
+            count = await ingestor.upsert_candles(session, candles)
+            return {"status": "ok", "timeframe": timeframe, "fetched": len(candles), "upserted": count}
+    except Exception as exc:
+        return {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+
+
 @router.post("/debug/seed-strategies")
 async def debug_seed_strategies():
     """Seed the strategies table with all registered strategies."""
