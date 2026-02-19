@@ -210,7 +210,7 @@ class CandleIngestor:
         session: AsyncSession,
         symbol: str,
         timeframe: str,
-        outputsize: int = 100,
+        outputsize: int = 5000,
     ) -> int:
         """Orchestrate incremental fetch and upsert of candles.
 
