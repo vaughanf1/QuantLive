@@ -98,6 +98,21 @@ async def status(
     )
 
 
+@router.post("/debug/create-tables")
+async def debug_create_tables():
+    """Create all database tables directly (bypasses Alembic)."""
+    try:
+        from app.database import engine
+        from app.models import Base
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        return {"status": "ok", "tables": list(Base.metadata.tables.keys())}
+    except Exception as exc:
+        return {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+
+
 @router.get("/debug/api-test")
 async def debug_api_test():
     """Test Twelve Data API connectivity from Railway."""
