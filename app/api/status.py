@@ -98,6 +98,64 @@ async def status(
     )
 
 
+@router.get("/debug/api-test")
+async def debug_api_test():
+    """Test Twelve Data API connectivity from Railway."""
+    import httpx
+    from app.config import get_settings
+
+    settings = get_settings()
+    key = settings.twelve_data_api_key
+    key_preview = f"{key[:6]}...{key[-4:]}" if len(key) > 10 else "TOO_SHORT"
+
+    results = {"api_key_preview": key_preview}
+
+    # Test price endpoint
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://api.twelvedata.com/price",
+                params={"symbol": "XAU/USD", "apikey": key},
+            )
+            results["price_status"] = resp.status_code
+            results["price_body"] = resp.json()
+    except Exception as exc:
+        results["price_error"] = f"{type(exc).__name__}: {exc}"
+
+    # Test time_series endpoint
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://api.twelvedata.com/time_series",
+                params={
+                    "symbol": "XAU/USD",
+                    "interval": "1h",
+                    "outputsize": "3",
+                    "apikey": key,
+                },
+            )
+            results["candle_status"] = resp.status_code
+            body = resp.json()
+            results["candle_ok"] = body.get("status") == "ok"
+            results["candle_count"] = len(body.get("values", []))
+    except Exception as exc:
+        results["candle_error"] = f"{type(exc).__name__}: {exc}"
+
+    # Test DB write with a direct ingestor call
+    try:
+        from app.database import async_session_factory
+        from app.services.candle_ingestor import CandleIngestor
+
+        ingestor = CandleIngestor(api_key=key)
+        async with async_session_factory() as session:
+            count = await ingestor.fetch_and_store(session, "XAUUSD", "H1")
+            results["ingest_h1_count"] = count
+    except Exception as exc:
+        results["ingest_error"] = f"{type(exc).__name__}: {exc}"
+
+    return results
+
+
 @router.post("/trigger/{job_name}")
 async def trigger_job(job_name: str):
     """Manually trigger a job and return the result or error.
