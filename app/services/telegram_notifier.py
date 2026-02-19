@@ -112,6 +112,11 @@ class TelegramNotifier:
             HTML-formatted string safe for Telegram parse_mode="HTML".
         """
         arrow = "\u2B06\uFE0F" if signal.direction == "BUY" else "\u2B07\uFE0F"
+
+        # Extract just the trade logic, strip system metadata after first "|"
+        reasoning = signal.reasoning or ""
+        logic = reasoning.split("|")[0].strip()
+
         return (
             f"{arrow} <b>XAUUSD {signal.direction}</b>\n\n"
             f"<b>Entry:</b> {signal.entry_price}\n"
@@ -121,7 +126,7 @@ class TelegramNotifier:
             f"<b>R:R:</b> {signal.risk_reward}\n"
             f"<b>Confidence:</b> {signal.confidence}%\n"
             f"<b>Strategy:</b> {strategy_name}\n\n"
-            f"<i>{signal.reasoning or ''}</i>"
+            f"<b>Logic:</b> {logic}"
         )
 
     # ------------------------------------------------------------------
