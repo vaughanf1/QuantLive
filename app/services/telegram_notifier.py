@@ -112,19 +112,12 @@ class TelegramNotifier:
             HTML-formatted string safe for Telegram parse_mode="HTML".
         """
         arrow = "\u2B06\uFE0F" if signal.direction == "BUY" else "\u2B07\uFE0F"
-
-        # Calculate price distances in dollars
-        entry = float(signal.entry_price)
-        sl_dist = round(abs(entry - float(signal.stop_loss)), 2)
-        tp1_dist = round(abs(float(signal.take_profit_1) - entry), 2)
-        tp2_dist = round(abs(float(signal.take_profit_2) - entry), 2)
-
         return (
             f"{arrow} <b>XAUUSD {signal.direction}</b>\n\n"
             f"<b>Entry:</b> {signal.entry_price}\n"
-            f"<b>Stop Loss:</b> {signal.stop_loss} (${sl_dist})\n"
-            f"<b>TP1:</b> {signal.take_profit_1} (${tp1_dist})\n"
-            f"<b>TP2:</b> {signal.take_profit_2} (${tp2_dist})\n"
+            f"<b>Stop Loss:</b> {signal.stop_loss}\n"
+            f"<b>TP1:</b> {signal.take_profit_1}\n"
+            f"<b>TP2:</b> {signal.take_profit_2}\n"
             f"<b>R:R:</b> {signal.risk_reward}\n"
             f"<b>Confidence:</b> {signal.confidence}%\n"
             f"<b>Strategy:</b> {strategy_name}\n\n"
