@@ -98,6 +98,41 @@ class SignalPipeline:
             logger.info("All candidates filtered out during validation")
             return []
 
+        # 4b. Pick the single best candidate (highest confidence).
+        #     Prevents conflicting BUY/SELL signals in the same run and
+        #     avoids flooding the user with multiple simultaneous trades.
+        validated.sort(
+            key=lambda c: float(c.confidence), reverse=True
+        )
+        best_candidate = validated[0]
+        if len(validated) > 1:
+            logger.info(
+                "Pipeline narrowed {} candidates to best: {} {} (conf={:.1f}%)",
+                len(validated),
+                best_candidate.direction.value,
+                best_candidate.entry_price,
+                float(best_candidate.confidence),
+            )
+        validated = [best_candidate]
+
+        # 4c. Block opposite-direction signal if one is already active.
+        active_stmt = (
+            select(Signal.direction)
+            .where(Signal.status == "active")
+            .limit(1)
+        )
+        active_result = await session.execute(active_stmt)
+        active_dir = active_result.scalar_one_or_none()
+        if active_dir is not None:
+            new_dir = validated[0].direction.value
+            if new_dir != active_dir:
+                logger.info(
+                    "Blocking {} signal: active {} signal already open",
+                    new_dir,
+                    active_dir,
+                )
+                return []
+
         # 5. Risk check (with real ATR for volatility-adjusted sizing)
         current_atr, baseline_atr = await self._compute_atr(session)
         risk_results = await self.risk_manager.check(

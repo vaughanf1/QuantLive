@@ -13,11 +13,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from loguru import logger
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.backtest_result import BacktestResult
 from app.models.outcome import Outcome
+from app.models.signal import Signal
 from app.models.strategy_performance import StrategyPerformance
 from app.services.risk_manager import RiskManager
 
@@ -46,6 +47,7 @@ class FeedbackController:
     COOLDOWN_HOURS = 24
     DEGRADATION_RECOVERY_DAYS = 7
     WIN_RATE_DROP_THRESHOLD = 0.15
+    MIN_OUTCOMES_FOR_DEGRADATION = 10  # Need enough data for meaningful stats
 
     # In-memory circuit breaker state (acceptable per decision: MemoryJobStore)
     _circuit_breaker_active: bool = False
@@ -65,6 +67,24 @@ class FeedbackController:
 
         Returns (is_degraded, reason_or_none).
         """
+        # Skip degradation checks if insufficient outcome data
+        outcome_count_stmt = (
+            select(func.count())
+            .select_from(Outcome)
+            .join(Signal, Signal.id == Outcome.signal_id)
+            .where(Signal.strategy_id == strategy_id)
+        )
+        outcome_result = await session.execute(outcome_count_stmt)
+        total_outcomes = outcome_result.scalar_one()
+        if total_outcomes < self.MIN_OUTCOMES_FOR_DEGRADATION:
+            logger.debug(
+                "Strategy id={}: only {} outcomes (need {}), skipping degradation check",
+                strategy_id,
+                total_outcomes,
+                self.MIN_OUTCOMES_FOR_DEGRADATION,
+            )
+            return False, None
+
         reasons: list[str] = []
 
         # Fetch live 30d performance

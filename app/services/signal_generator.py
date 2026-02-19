@@ -282,16 +282,18 @@ class SignalGenerator:
         Uses the timeframe-specific EXPIRY_HOURS mapping, defaulting
         to 8 hours if the timeframe is not explicitly configured.
 
-        Called during signal persistence (Plan 05), not during validation.
+        Expiry is based on the current wall-clock time (when the signal
+        is persisted), NOT the candle timestamp — the candle may be
+        hours old by the time the pipeline runs.
 
         Args:
-            candidate: CandidateSignal with timeframe and timestamp attributes.
+            candidate: CandidateSignal with timeframe attribute.
 
         Returns:
             Expiry datetime (UTC).
         """
         expiry_hours = EXPIRY_HOURS.get(candidate.timeframe, 8)
-        return candidate.timestamp + timedelta(hours=expiry_hours)
+        return datetime.now(timezone.utc) + timedelta(hours=expiry_hours)
 
     async def expire_stale_signals(self, session: AsyncSession) -> int:
         """Mark active signals past their expiry as expired.
