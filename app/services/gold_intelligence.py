@@ -151,8 +151,9 @@ class GoldIntelligence:
         """
         enriched: list[CandidateSignal] = []
 
+        now = datetime.now(timezone.utc)
         for candidate in candidates:
-            session_info = self.get_session_info(candidate.timestamp)
+            session_info = self.get_session_info(now)
 
             # Determine primary session label
             if session_info.is_overlap:
