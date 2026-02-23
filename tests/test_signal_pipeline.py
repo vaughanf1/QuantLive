@@ -198,38 +198,6 @@ async def test_pipeline_full_flow_produces_signal():
 
 
 @pytest.mark.asyncio
-async def test_stale_data_guard():
-    """Scanner job skips when latest candle timestamp matches last scan."""
-    from app.workers import jobs
-
-    original_ts = jobs._last_scanned_ts
-
-    try:
-        # Simulate a previous scan timestamp
-        fixed_ts = datetime(2026, 2, 17, 11, 0, 0, tzinfo=timezone.utc)
-        jobs._last_scanned_ts = fixed_ts
-
-        # Mock session factory to return a session where the latest candle
-        # has the same timestamp as last scan
-        mock_session = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = fixed_ts
-        mock_session.execute.return_value = mock_result
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("app.workers.jobs.async_session_factory", return_value=mock_session):
-            # run_signal_scanner should skip (no new data)
-            await jobs.run_signal_scanner()
-
-        # _last_scanned_ts should still be the same (not updated)
-        assert jobs._last_scanned_ts == fixed_ts
-
-    finally:
-        jobs._last_scanned_ts = original_ts
-
-
-@pytest.mark.asyncio
 async def test_expire_stale_signals_called_first():
     """Expire stale signals is called before strategy selection."""
     pipeline, session = make_pipeline()

@@ -12,6 +12,8 @@ from math import isnan
 import numpy as np
 import pandas as pd
 
+from typing import ClassVar
+
 from app.strategies.base import BaseStrategy, CandidateSignal, Direction
 from app.strategies.helpers import (
     compute_atr,
@@ -37,18 +39,20 @@ class BreakoutExpansionStrategy(BaseStrategy):
     min_candles = 70
 
     # ------------------------------------------------------------------
-    # Tuning constants
+    # Default parameters (overridable via constructor)
     # ------------------------------------------------------------------
-    _ATR_LENGTH = 14
-    _ATR_MA_LENGTH = 50           # rolling ATR average window
-    _ATR_COMPRESSION = 0.5        # ATR < 0.5 * ATR_MA = consolidation
-    _MIN_CONSOL_BARS = 10         # minimum consecutive bars in consolidation
-    _VOLUME_MULT = 1.5            # breakout volume > 1.5 * avg consolidation volume
-    _WIDE_RANGE_ATR_MULT = 3.0    # range > 3 * ATR = "wide"
-    _BREAKOUT_BODY_ATR = 1.5      # strong breakout candle body > 1.5 * ATR
-    _BASE_CONFIDENCE = 50
-    _LONDON_OPEN_START = 7        # London open hours for confidence bonus
-    _LONDON_OPEN_END = 9
+    DEFAULT_PARAMS: ClassVar[dict[str, float]] = {
+        "ATR_LENGTH": 14,
+        "ATR_MA_LENGTH": 50,
+        "ATR_COMPRESSION": 0.5,
+        "MIN_CONSOL_BARS": 10,
+        "VOLUME_MULT": 1.5,
+        "WIDE_RANGE_ATR_MULT": 3.0,
+        "BREAKOUT_BODY_ATR": 1.5,
+        "BASE_CONFIDENCE": 50,
+        "LONDON_OPEN_START": 7,
+        "LONDON_OPEN_END": 9,
+    }
 
     # ------------------------------------------------------------------
     # Public API
@@ -73,9 +77,9 @@ class BreakoutExpansionStrategy(BaseStrategy):
         # --- indicators ---
         atr = compute_atr(
             candles["high"], candles["low"], candles["close"],
-            length=self._ATR_LENGTH,
+            length=int(self.params["ATR_LENGTH"]),
         )
-        atr_ma = atr.rolling(window=self._ATR_MA_LENGTH).mean()
+        atr_ma = atr.rolling(window=int(self.params["ATR_MA_LENGTH"])).mean()
 
         opens = candles["open"].values
         highs = candles["high"].values
@@ -107,7 +111,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
                 in_consolidation = False
                 continue
 
-            is_compressed = atr_val < self._ATR_COMPRESSION * atr_ma_val
+            is_compressed = atr_val < self.params["ATR_COMPRESSION"] * atr_ma_val
 
             if is_compressed:
                 if consol_start is None:
@@ -117,7 +121,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
                 # Bar is NOT compressed -- check if we just exited a consolidation
                 if in_consolidation and consol_start is not None:
                     consol_length = i - consol_start
-                    if consol_length >= self._MIN_CONSOL_BARS:
+                    if consol_length >= int(self.params["MIN_CONSOL_BARS"]):
                         # We have a valid consolidation range
                         signal = self._check_breakout(
                             i, consol_start, consol_length,
@@ -180,7 +184,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
             avg_vol = float(np.mean(consol_volumes))
             if avg_vol > 0:
                 breakout_vol = float(volumes[i])
-                if breakout_vol > self._VOLUME_MULT * avg_vol:
+                if breakout_vol > self.params["VOLUME_MULT"] * avg_vol:
                     volume_confirms = True
 
         # --- timestamp and session info ---
@@ -189,7 +193,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
         session = active_sessions[0] if active_sessions else None
 
         # London open bonus check (07:00-09:00 UTC)
-        london_open = self._LONDON_OPEN_START <= ts.hour < self._LONDON_OPEN_END
+        london_open = int(self.params["LONDON_OPEN_START"]) <= ts.hour < int(self.params["LONDON_OPEN_END"])
 
         # Breakout candle body size
         candle_body = abs(close_val - open_val)
@@ -231,7 +235,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
     ) -> CandidateSignal:
         """Build a bullish breakout signal."""
         # Stop loss: range_low (or midpoint if range is very wide)
-        if range_height > self._WIDE_RANGE_ATR_MULT * atr_val:
+        if range_height > self.params["WIDE_RANGE_ATR_MULT"] * atr_val:
             sl = (range_high + range_low) / 2.0  # midpoint
         else:
             sl = range_low
@@ -296,7 +300,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
     ) -> CandidateSignal:
         """Build a bearish breakout signal."""
         # Stop loss: range_high (or midpoint if range is very wide)
-        if range_height > self._WIDE_RANGE_ATR_MULT * atr_val:
+        if range_height > self.params["WIDE_RANGE_ATR_MULT"] * atr_val:
             sl = (range_high + range_low) / 2.0  # midpoint
         else:
             sl = range_high
@@ -362,12 +366,12 @@ class BreakoutExpansionStrategy(BaseStrategy):
           +10  volume confirms breakout
           +10  London open session (07:00-09:00 UTC)
         """
-        score = float(self._BASE_CONFIDENCE)
+        score = float(self.params["BASE_CONFIDENCE"])
 
         if consol_length > 20:
             score += 10
 
-        if atr_val > 0 and candle_body > self._BREAKOUT_BODY_ATR * atr_val:
+        if atr_val > 0 and candle_body > self.params["BREAKOUT_BODY_ATR"] * atr_val:
             score += 10
 
         if volume_confirms:

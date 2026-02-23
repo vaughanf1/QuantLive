@@ -71,6 +71,23 @@ class BaseStrategy(ABC):
     required_timeframes: ClassVar[list[str]]
     min_candles: ClassVar[int]
 
+    # Default parameters — concrete strategies override with their own defaults.
+    DEFAULT_PARAMS: ClassVar[dict[str, float]] = {}
+
+    def __init__(self, params: dict[str, float] | None = None) -> None:
+        """Merge optional param overrides onto class DEFAULT_PARAMS.
+
+        Args:
+            params: Optional dict of parameter overrides.  Keys that match
+                    DEFAULT_PARAMS are replaced; unmatched keys are ignored.
+                    ``None`` or ``{}`` means use all defaults.
+        """
+        self.params: dict[str, float] = dict(self.DEFAULT_PARAMS)
+        if params:
+            for key, value in params.items():
+                if key in self.params:
+                    self.params[key] = value
+
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         # Only register concrete subclasses that define a string name
@@ -120,11 +137,14 @@ class BaseStrategy(ABC):
         return dict(cls._registry)
 
     @classmethod
-    def get_strategy(cls, name: str) -> "BaseStrategy":
+    def get_strategy(
+        cls, name: str, params: dict[str, float] | None = None
+    ) -> "BaseStrategy":
         """Instantiate and return a strategy by name.
 
         Args:
             name: The registered strategy name.
+            params: Optional parameter overrides passed to the constructor.
 
         Returns:
             An instance of the requested strategy.
@@ -137,7 +157,7 @@ class BaseStrategy(ABC):
             raise KeyError(
                 f"Strategy '{name}' not found. Available: {available}"
             )
-        return cls._registry[name]()
+        return cls._registry[name](params=params)
 
 
 def candles_to_dataframe(candles: list) -> pd.DataFrame:

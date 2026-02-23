@@ -7,6 +7,7 @@ from app.models.backtest_result import BacktestResult
 from app.models.signal import Signal
 from app.models.outcome import Outcome
 from app.models.strategy_performance import StrategyPerformance
+from app.models.optimized_params import OptimizedParams
 
 __all__ = [
     "Base",
@@ -16,4 +17,5 @@ __all__ = [
     "Signal",
     "Outcome",
     "StrategyPerformance",
+    "OptimizedParams",
 ]

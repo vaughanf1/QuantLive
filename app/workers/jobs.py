@@ -142,8 +142,31 @@ async def run_daily_backtests() -> None:
             total_results = 0
             total_wf_results = 0
 
+            # Load optimized params for each strategy
+            from app.models.optimized_params import OptimizedParams
+            from sqlalchemy import and_
+            opt_params_lookup: dict[str, dict[str, float]] = {}
+            for sname in registry:
+                opt_stmt = (
+                    select(OptimizedParams.params)
+                    .where(
+                        and_(
+                            OptimizedParams.strategy_name == sname,
+                            OptimizedParams.is_active.is_(True),
+                            OptimizedParams.is_overfitted.isnot(True),
+                        )
+                    )
+                    .order_by(OptimizedParams.created_at.desc())
+                    .limit(1)
+                )
+                opt_result = await session.execute(opt_stmt)
+                opt_row = opt_result.scalar_one_or_none()
+                if opt_row:
+                    opt_params_lookup[sname] = opt_row
+
             for strategy_name, strategy_cls in registry.items():
-                strategy = strategy_cls()
+                opt_params = opt_params_lookup.get(strategy_name)
+                strategy = strategy_cls(params=opt_params)
                 strategy_id = db_strategies.get(strategy_name)
 
                 if strategy_id is None:
@@ -260,22 +283,16 @@ async def run_daily_backtests() -> None:
         logger.exception("run_daily_backtests failed")
 
 
-# Module-level variable for stale data detection (SIG-08)
-_last_scanned_ts: datetime | None = None
-
-
 async def run_signal_scanner() -> None:
     """Run the signal pipeline to scan for new trade signals.
 
-    Executed at :02 every hour via APScheduler CronTrigger. Checks for new
-    H1 candle data before running the full pipeline to avoid duplicate
-    processing (SIG-08 stale data guard).
+    Executed every 30 minutes at :02 and :32 via APScheduler CronTrigger.
+    The dedup window in SignalGenerator prevents duplicate signals, so no
+    stale data guard is needed.
 
     Creates its own database session. All exceptions are caught at the top
     level to prevent scheduler crashes.
     """
-    global _last_scanned_ts
-
     try:
         from app.services.strategy_selector import StrategySelector
         from app.services.signal_generator import SignalGenerator
@@ -284,33 +301,6 @@ async def run_signal_scanner() -> None:
         from app.services.signal_pipeline import SignalPipeline
 
         async with async_session_factory() as session:
-            # Stale data guard: check if there's a new H1 candle since last scan
-            stmt = (
-                select(Candle.timestamp)
-                .where(Candle.symbol == "XAUUSD", Candle.timeframe == "H1")
-                .order_by(Candle.timestamp.desc())
-                .limit(1)
-            )
-            result = await session.execute(stmt)
-            latest_candle_ts = result.scalar_one_or_none()
-
-            if latest_candle_ts is None:
-                logger.warning("run_signal_scanner: no H1 XAUUSD candles found, skipping")
-                return
-
-            if _last_scanned_ts is not None and latest_candle_ts == _last_scanned_ts:
-                logger.info(
-                    "run_signal_scanner: no new candle data since last scan "
-                    "(latest={}), skipping",
-                    latest_candle_ts,
-                )
-                return
-
-            _last_scanned_ts = latest_candle_ts
-            logger.info(
-                "run_signal_scanner: new candle data detected (ts={}), running pipeline",
-                latest_candle_ts,
-            )
 
             # Instantiate services and run pipeline
             selector = StrategySelector()
@@ -596,5 +586,176 @@ async def send_health_digest() -> None:
             await notifier.notify_system_alert(
                 "Health Digest Failing",
                 f"Health digest job has failed {count} consecutive times\n\n"
+                f"<b>Error:</b> {err_type}: {err_msg}",
+            )
+
+
+async def run_param_optimization() -> None:
+    """Run parameter optimization for all registered strategies.
+
+    Executed every 6 hours via APScheduler CronTrigger. For each strategy,
+    samples parameter combinations, backtests them, validates the best via
+    walk-forward, and persists the winning params to the optimized_params table.
+
+    Creates its own database session. All exceptions are caught at the top
+    level to prevent scheduler crashes.
+    """
+    try:
+        from app.strategies.base import BaseStrategy, candles_to_dataframe
+        from app.strategies.liquidity_sweep import LiquiditySweepStrategy  # noqa: F401
+        from app.strategies.trend_continuation import TrendContinuationStrategy  # noqa: F401
+        from app.strategies.breakout_expansion import BreakoutExpansionStrategy  # noqa: F401
+
+        from app.services.param_optimizer import ParamOptimizer, PARAM_RANGES
+        from app.models.optimized_params import OptimizedParams
+
+        optimizer = ParamOptimizer()
+
+        async with async_session_factory() as session:
+            # Load all H1 XAUUSD candles
+            stmt = (
+                select(Candle)
+                .where(Candle.symbol == "XAUUSD", Candle.timeframe == "H1")
+                .order_by(Candle.timestamp.asc())
+            )
+            result = await session.execute(stmt)
+            candle_rows = result.scalars().all()
+
+            if not candle_rows:
+                logger.warning("run_param_optimization: no H1 XAUUSD candles, skipping")
+                return
+
+            df = candles_to_dataframe(candle_rows)
+
+            # Need enough data for 30-day backtest + walk-forward
+            min_candles = 30 * 24 + 72
+            if len(df) < min_candles:
+                logger.warning(
+                    "run_param_optimization: insufficient candles "
+                    f"(have {len(df)}, need {min_candles}), skipping"
+                )
+                return
+
+            # Build strategy_name -> strategy_id lookup
+            strat_stmt = select(StrategyModel)
+            strat_result = await session.execute(strat_stmt)
+            db_strategies = {s.name: s.id for s in strat_result.scalars().all()}
+
+            settings = get_settings()
+            notifier = TelegramNotifier(
+                bot_token=settings.telegram_bot_token,
+                chat_id=settings.telegram_chat_id,
+            )
+
+            optimized_count = 0
+
+            for strategy_name in PARAM_RANGES:
+                strategy_id = db_strategies.get(strategy_name)
+                if strategy_id is None:
+                    logger.warning(
+                        "run_param_optimization: strategy '{}' not in DB, skipping",
+                        strategy_name,
+                    )
+                    continue
+
+                try:
+                    opt_result = await optimizer.optimize_strategy(strategy_name, df)
+
+                    if opt_result is None:
+                        logger.info(
+                            "run_param_optimization: no viable params for '{}'",
+                            strategy_name,
+                        )
+                        continue
+
+                    # Deactivate previous active params for this strategy
+                    from sqlalchemy import update, and_
+                    deactivate_stmt = (
+                        update(OptimizedParams)
+                        .where(
+                            and_(
+                                OptimizedParams.strategy_name == strategy_name,
+                                OptimizedParams.is_active.is_(True),
+                            )
+                        )
+                        .values(is_active=False)
+                    )
+                    await session.execute(deactivate_stmt)
+
+                    # Persist new optimized params
+                    opt_row = OptimizedParams(
+                        strategy_id=strategy_id,
+                        strategy_name=strategy_name,
+                        params=opt_result.best_params,
+                        win_rate=opt_result.metrics.win_rate,
+                        profit_factor=opt_result.metrics.profit_factor,
+                        sharpe_ratio=opt_result.metrics.sharpe_ratio,
+                        expectancy=opt_result.metrics.expectancy,
+                        total_trades=opt_result.metrics.total_trades,
+                        wfe_ratio=(
+                            Decimal(str(round(opt_result.wfe_ratio, 4)))
+                            if opt_result.wfe_ratio is not None
+                            else None
+                        ),
+                        is_overfitted=opt_result.is_overfitted,
+                        is_active=not opt_result.is_overfitted,
+                        combinations_tested=opt_result.combinations_tested,
+                    )
+                    session.add(opt_row)
+                    optimized_count += 1
+
+                    # Send Telegram notification
+                    if notifier.enabled:
+                        # Build param summary (only optimized params)
+                        opt_params_summary = {
+                            k: v
+                            for k, v in opt_result.best_params.items()
+                            if k in PARAM_RANGES.get(strategy_name, {})
+                        }
+                        text = (
+                            f"\U0001f527 <b>Params Optimized: {strategy_name}</b>\n\n"
+                            f"<b>Params:</b> {opt_params_summary}\n"
+                            f"<b>Win Rate:</b> {opt_result.metrics.win_rate}\n"
+                            f"<b>Profit Factor:</b> {opt_result.metrics.profit_factor}\n"
+                            f"<b>Trades:</b> {opt_result.metrics.total_trades}\n"
+                            f"<b>Overfitted:</b> {opt_result.is_overfitted}\n"
+                            f"<b>Combinations:</b> {opt_result.combinations_tested}"
+                        )
+                        try:
+                            await notifier._send_message(text)
+                        except Exception:
+                            logger.exception(
+                                "Telegram notification failed for param optimization"
+                            )
+
+                except Exception:
+                    logger.exception(
+                        "run_param_optimization: error optimizing '{}'",
+                        strategy_name,
+                    )
+
+            await session.commit()
+
+            logger.info(
+                "run_param_optimization complete | optimized={}",
+                optimized_count,
+            )
+
+        FailureTracker.record_success("run_param_optimization")
+
+    except Exception as exc:
+        logger.exception("run_param_optimization failed")
+        count = FailureTracker.record_failure("run_param_optimization")
+        if FailureTracker.should_alert("run_param_optimization"):
+            settings = get_settings()
+            notifier = TelegramNotifier(
+                bot_token=settings.telegram_bot_token,
+                chat_id=settings.telegram_chat_id,
+            )
+            err_type = type(exc).__name__
+            err_msg = str(exc)[:200]
+            await notifier.notify_system_alert(
+                "Param Optimization Failing",
+                f"Parameter optimization has failed {count} consecutive times\n\n"
                 f"<b>Error:</b> {err_type}: {err_msg}",
             )

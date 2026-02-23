@@ -18,10 +18,10 @@ from app.models.signal import Signal
 # ---------------------------------------------------------------------------
 
 MIN_RR: float = 1.5  # Minimum risk:reward ratio (1:1.5)
-MIN_CONFIDENCE: float = 55.0  # Minimum confidence threshold (%)
+MIN_CONFIDENCE: float = 50.0  # Minimum confidence threshold (%)
 MAX_SL_PIPS: float = 250.0  # Max stop loss distance (pips); skip trade if wider
 PIP_VALUE: float = 0.10  # XAUUSD: $0.10 price movement per pip
-DEDUP_WINDOW_HOURS: int = 2  # Same-direction dedup window (hours)
+DEDUP_WINDOW_HOURS: int = 1  # Same-direction dedup window (hours)
 EXPIRY_HOURS: dict[str, int] = {
     "M15": 4,   # Scalp: 4 hours
     "H1": 8,    # Intraday: 8 hours
@@ -72,9 +72,10 @@ class SignalGenerator:
         import app.strategies.trend_continuation  # noqa: F401
         import app.strategies.breakout_expansion  # noqa: F401
 
-        # 1. Get strategy instance
+        # 1. Get strategy instance (with optimized params if available)
+        opt_params = await self._load_optimized_params(session, strategy_name)
         try:
-            strategy = BaseStrategy.get_strategy(strategy_name)
+            strategy = BaseStrategy.get_strategy(strategy_name, params=opt_params)
         except KeyError:
             logger.error(
                 "Strategy '{}' not found in registry. Available: {}",
@@ -82,6 +83,16 @@ class SignalGenerator:
                 list(BaseStrategy.get_registry().keys()),
             )
             return []
+
+        if opt_params:
+            logger.info(
+                "Using optimized params for '{}': {}",
+                strategy_name,
+                {k: v for k, v in opt_params.items()
+                 if v != BaseStrategy.get_registry()[strategy_name].DEFAULT_PARAMS.get(k)},
+            )
+        else:
+            logger.debug("Using default params for '{}'", strategy_name)
 
         # 2. Query latest candles for the strategy's primary timeframe
         primary_tf = strategy.required_timeframes[0]
@@ -128,6 +139,33 @@ class SignalGenerator:
             len(candidates),
         )
         return candidates
+
+    @staticmethod
+    async def _load_optimized_params(
+        session: AsyncSession,
+        strategy_name: str,
+    ) -> dict[str, float] | None:
+        """Load active, non-overfitted optimized params for a strategy.
+
+        Returns the params dict if found, or None to use defaults.
+        """
+        from app.models.optimized_params import OptimizedParams
+
+        stmt = (
+            select(OptimizedParams.params)
+            .where(
+                and_(
+                    OptimizedParams.strategy_name == strategy_name,
+                    OptimizedParams.is_active.is_(True),
+                    OptimizedParams.is_overfitted.isnot(True),
+                )
+            )
+            .order_by(OptimizedParams.created_at.desc())
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        row = result.scalar_one_or_none()
+        return row if row else None
 
     async def validate(
         self,

@@ -12,6 +12,8 @@ from math import isnan
 import numpy as np
 import pandas as pd
 
+from typing import ClassVar
+
 from app.strategies.base import BaseStrategy, CandidateSignal, Direction
 from app.strategies.helpers import (
     compute_atr,
@@ -39,16 +41,18 @@ class LiquiditySweepStrategy(BaseStrategy):
     min_candles = 100
 
     # ------------------------------------------------------------------
-    # Tuning constants
+    # Default parameters (overridable via constructor)
     # ------------------------------------------------------------------
-    _SWING_ORDER = 5          # argrelextrema order for swing detection
-    _ATR_LENGTH = 14          # ATR lookback period
-    _LOOKBACK = 50            # how far back to search for swing levels
-    _CONFIRM_BARS = 3         # bars after sweep to look for confirmation
-    _SL_ATR_MULT = 0.5        # SL = wick extreme +/- SL_ATR_MULT * ATR
-    _TP1_RR = 1.5             # TP1 risk-reward multiple
-    _TP2_RR = 3.0             # TP2 risk-reward multiple
-    _BASE_CONFIDENCE = 50     # starting confidence score
+    DEFAULT_PARAMS: ClassVar[dict[str, float]] = {
+        "SWING_ORDER": 5,
+        "ATR_LENGTH": 14,
+        "LOOKBACK": 50,
+        "CONFIRM_BARS": 3,
+        "SL_ATR_MULT": 0.5,
+        "TP1_RR": 1.5,
+        "TP2_RR": 3.0,
+        "BASE_CONFIDENCE": 50,
+    }
 
     # -----------------------------------------------------------------
     # Public API
@@ -72,13 +76,13 @@ class LiquiditySweepStrategy(BaseStrategy):
 
         # --- indicators ---
         atr = compute_atr(candles["high"], candles["low"], candles["close"],
-                          length=self._ATR_LENGTH)
+                          length=int(self.params["ATR_LENGTH"]))
 
         # --- swing structure ---
         swing_high_indices = detect_swing_highs(candles["high"],
-                                                order=self._SWING_ORDER)
+                                                order=int(self.params["SWING_ORDER"]))
         swing_low_indices = detect_swing_lows(candles["low"],
-                                              order=self._SWING_ORDER)
+                                              order=int(self.params["SWING_ORDER"]))
 
         highs = candles["high"].values
         lows = candles["low"].values
@@ -105,11 +109,11 @@ class LiquiditySweepStrategy(BaseStrategy):
 
             # Collect recent swing lows & highs within lookback window
             recent_sl = swing_low_indices[
-                (swing_low_indices >= i - self._LOOKBACK) &
+                (swing_low_indices >= i - int(self.params["LOOKBACK"])) &
                 (swing_low_indices < i)
             ]
             recent_sh = swing_high_indices[
-                (swing_high_indices >= i - self._LOOKBACK) &
+                (swing_high_indices >= i - int(self.params["LOOKBACK"])) &
                 (swing_high_indices < i)
             ]
 
@@ -174,7 +178,7 @@ class LiquiditySweepStrategy(BaseStrategy):
         #     the sweep candle's high ---
         confirm_idx: int | None = None
         sweep_high = float(highs[i])
-        for j in range(i + 1, min(i + 1 + self._CONFIRM_BARS, n)):
+        for j in range(i + 1, min(i + 1 + int(self.params["CONFIRM_BARS"]), n)):
             if float(closes[j]) > sweep_high:
                 confirm_idx = j
                 break
@@ -184,14 +188,14 @@ class LiquiditySweepStrategy(BaseStrategy):
 
         # --- Build signal ---
         entry = float(closes[confirm_idx])
-        sl = float(lows[i]) - self._SL_ATR_MULT * atr_val
+        sl = float(lows[i]) - self.params["SL_ATR_MULT"] * atr_val
         risk_dist = abs(entry - sl)
         if risk_dist == 0:
             return None
 
-        tp1 = entry + self._TP1_RR * risk_dist
-        tp2 = entry + self._TP2_RR * risk_dist
-        rr = self._TP1_RR  # by construction
+        tp1 = entry + self.params["TP1_RR"] * risk_dist
+        tp2 = entry + self.params["TP2_RR"] * risk_dist
+        rr = self.params["TP1_RR"]  # by construction
 
         confidence = self._compute_confidence(
             sweep_wick=abs(float(lows[i]) - sweep_level),
@@ -270,7 +274,7 @@ class LiquiditySweepStrategy(BaseStrategy):
         #     the sweep candle's low ---
         confirm_idx: int | None = None
         sweep_low = float(lows[i])
-        for j in range(i + 1, min(i + 1 + self._CONFIRM_BARS, n)):
+        for j in range(i + 1, min(i + 1 + int(self.params["CONFIRM_BARS"]), n)):
             if float(closes[j]) < sweep_low:
                 confirm_idx = j
                 break
@@ -280,14 +284,14 @@ class LiquiditySweepStrategy(BaseStrategy):
 
         # --- Build signal ---
         entry = float(closes[confirm_idx])
-        sl = float(highs[i]) + self._SL_ATR_MULT * atr_val
+        sl = float(highs[i]) + self.params["SL_ATR_MULT"] * atr_val
         risk_dist = abs(sl - entry)
         if risk_dist == 0:
             return None
 
-        tp1 = entry - self._TP1_RR * risk_dist
-        tp2 = entry - self._TP2_RR * risk_dist
-        rr = self._TP1_RR
+        tp1 = entry - self.params["TP1_RR"] * risk_dist
+        tp2 = entry - self.params["TP2_RR"] * risk_dist
+        rr = self.params["TP1_RR"]
 
         confidence = self._compute_confidence(
             sweep_wick=abs(float(highs[i]) - sweep_level),
@@ -348,7 +352,7 @@ class LiquiditySweepStrategy(BaseStrategy):
           +10  in London/NY overlap session (12:00-16:00 UTC)
           +10  swept multiple swing levels (stronger liquidity pool)
         """
-        score = float(self._BASE_CONFIDENCE)
+        score = float(self.params["BASE_CONFIDENCE"])
 
         # Bonus: deep sweep (wick extends > 1 ATR beyond level)
         if atr_val > 0 and sweep_wick > atr_val:

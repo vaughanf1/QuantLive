@@ -16,6 +16,7 @@ from app.workers.jobs import (
     refresh_candles,
     run_daily_backtests,
     run_data_retention,
+    run_param_optimization,
     run_signal_scanner,
     send_health_digest,
 )
@@ -88,21 +89,30 @@ def register_jobs() -> None:
 
     scheduler.add_job(
         run_daily_backtests,
-        trigger=CronTrigger(hour=2, minute=0, timezone="UTC"),
+        trigger=CronTrigger(hour="2,14", minute=0, timezone="UTC"),
         id="run_daily_backtests",
-        name="Run daily backtests",
+        name="Run backtests (12h)",
         replace_existing=True,
     )
-    logger.info("Registered job: run_daily_backtests (daily at 02:00 UTC)")
+    logger.info("Registered job: run_daily_backtests (every 12h at 02:00, 14:00 UTC)")
 
     scheduler.add_job(
         run_signal_scanner,
-        trigger=CronTrigger(minute=2, timezone="UTC"),
+        trigger=CronTrigger(minute="2,32", timezone="UTC"),
         id="run_signal_scanner",
-        name="Run signal scanner",
+        name="Run signal scanner (30min)",
         replace_existing=True,
     )
-    logger.info("Registered job: run_signal_scanner (every hour at :02 UTC)")
+    logger.info("Registered job: run_signal_scanner (every 30min at :02, :32 UTC)")
+
+    scheduler.add_job(
+        run_param_optimization,
+        trigger=CronTrigger(hour="0,6,12,18", minute=30, timezone="UTC"),
+        id="run_param_optimization",
+        name="Run param optimization (6h)",
+        replace_existing=True,
+    )
+    logger.info("Registered job: run_param_optimization (every 6h at :30 UTC)")
 
     scheduler.add_job(
         check_outcomes,
@@ -133,4 +143,4 @@ def register_jobs() -> None:
     )
     logger.info("Registered job: send_health_digest (daily at 06:00 UTC)")
 
-    logger.info("All {count} jobs registered", count=9)
+    logger.info("All {count} jobs registered", count=10)

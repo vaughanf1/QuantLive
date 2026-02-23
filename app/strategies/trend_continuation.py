@@ -12,6 +12,8 @@ from math import isnan
 import numpy as np
 import pandas as pd
 
+from typing import ClassVar
+
 from app.strategies.base import BaseStrategy, CandidateSignal, Direction
 from app.strategies.helpers import (
     compute_atr,
@@ -42,18 +44,20 @@ class TrendContinuationStrategy(BaseStrategy):
     min_candles = 200
 
     # ------------------------------------------------------------------
-    # Tuning constants
+    # Default parameters (overridable via constructor)
     # ------------------------------------------------------------------
-    _EMA_FAST = 50
-    _EMA_SLOW = 200
-    _ATR_LENGTH = 14
-    _PULLBACK_ATR_MULT = 1.0      # pullback zone: within 1 ATR of EMA-50
-    _SL_ATR_MULT = 1.5            # SL distance: 1.5 * ATR beyond pullback extreme
-    _TP1_RR = 2.0                 # TP1 risk-reward multiple
-    _TP2_RR = 3.0                 # TP2 fallback R:R if no swing target
-    _LOOKBACK_PULLBACK = 5        # recent bars to check for "was in trend"
-    _BASE_CONFIDENCE = 50
-    _SWING_ORDER = 5              # argrelextrema order for swing detection
+    DEFAULT_PARAMS: ClassVar[dict[str, float]] = {
+        "EMA_FAST": 50,
+        "EMA_SLOW": 200,
+        "ATR_LENGTH": 14,
+        "PULLBACK_ATR_MULT": 1.0,
+        "SL_ATR_MULT": 1.5,
+        "TP1_RR": 2.0,
+        "TP2_RR": 3.0,
+        "LOOKBACK_PULLBACK": 5,
+        "BASE_CONFIDENCE": 50,
+        "SWING_ORDER": 5,
+    }
 
     # ------------------------------------------------------------------
     # Public API
@@ -76,11 +80,11 @@ class TrendContinuationStrategy(BaseStrategy):
         candles = candles.copy()
 
         # --- indicators ---
-        ema_50 = compute_ema(candles["close"], self._EMA_FAST)
-        ema_200 = compute_ema(candles["close"], self._EMA_SLOW)
+        ema_50 = compute_ema(candles["close"], int(self.params["EMA_FAST"]))
+        ema_200 = compute_ema(candles["close"], int(self.params["EMA_SLOW"]))
         atr = compute_atr(
             candles["high"], candles["low"], candles["close"],
-            length=self._ATR_LENGTH,
+            length=int(self.params["ATR_LENGTH"]),
         )
 
         # VWAP (optional -- may be all NaN if no volume)
@@ -89,10 +93,10 @@ class TrendContinuationStrategy(BaseStrategy):
 
         # Swing detection for TP2 targets
         swing_high_indices = detect_swing_highs(
-            candles["high"], order=self._SWING_ORDER,
+            candles["high"], order=int(self.params["SWING_ORDER"]),
         )
         swing_low_indices = detect_swing_lows(
-            candles["low"], order=self._SWING_ORDER,
+            candles["low"], order=int(self.params["SWING_ORDER"]),
         )
 
         opens = candles["open"].values
@@ -183,18 +187,19 @@ class TrendContinuationStrategy(BaseStrategy):
 
         # --- pullback detection ---
         # Price was above EMA-50 in recent bars
+        pb_mult = self.params["PULLBACK_ATR_MULT"]
         was_above = False
-        lookback_start = max(0, i - self._LOOKBACK_PULLBACK)
+        lookback_start = max(0, i - int(self.params["LOOKBACK_PULLBACK"]))
         for j in range(lookback_start, i):
-            if float(closes[j]) > ema50_val + atr_val:
+            if float(closes[j]) > ema50_val + pb_mult * atr_val:
                 was_above = True
                 break
 
         if not was_above:
             return None
 
-        # Current bar is in the pullback zone (within 1 ATR of EMA-50)
-        if not (ema50_val - atr_val <= close_val <= ema50_val + atr_val):
+        # Current bar is in the pullback zone (within PULLBACK_ATR_MULT * ATR of EMA-50)
+        if not (ema50_val - pb_mult * atr_val <= close_val <= ema50_val + pb_mult * atr_val):
             return None
 
         # --- momentum confirmation ---
@@ -219,26 +224,26 @@ class TrendContinuationStrategy(BaseStrategy):
         pullback_low = min(pullback_lows) if pullback_lows else low_val
 
         # Stop loss below pullback low minus 1.5 * ATR
-        sl = pullback_low - self._SL_ATR_MULT * atr_val
+        sl = pullback_low - self.params["SL_ATR_MULT"] * atr_val
 
         # Ensure minimum SL distance of 1.5 * ATR
         risk_dist = abs(entry - sl)
-        if risk_dist < self._SL_ATR_MULT * atr_val:
-            sl = entry - self._SL_ATR_MULT * atr_val
+        if risk_dist < self.params["SL_ATR_MULT"] * atr_val:
+            sl = entry - self.params["SL_ATR_MULT"] * atr_val
             risk_dist = abs(entry - sl)
 
         if risk_dist == 0:
             return None
 
         # TP1: 2:1 R:R
-        tp1 = entry + self._TP1_RR * risk_dist
+        tp1 = entry + self.params["TP1_RR"] * risk_dist
 
         # TP2: nearest swing high above entry, or 3:1 R:R fallback
         tp2 = self._find_swing_target_above(
             entry, swing_high_indices, highs, i,
         )
         if tp2 is None or tp2 <= tp1:
-            tp2 = entry + self._TP2_RR * risk_dist
+            tp2 = entry + self.params["TP2_RR"] * risk_dist
 
         rr = round((tp1 - entry) / risk_dist, 2)
 
@@ -314,18 +319,19 @@ class TrendContinuationStrategy(BaseStrategy):
 
         # --- pullback detection ---
         # Price was below EMA-50 in recent bars
+        pb_mult = self.params["PULLBACK_ATR_MULT"]
         was_below = False
-        lookback_start = max(0, i - self._LOOKBACK_PULLBACK)
+        lookback_start = max(0, i - int(self.params["LOOKBACK_PULLBACK"]))
         for j in range(lookback_start, i):
-            if float(closes[j]) < ema50_val - atr_val:
+            if float(closes[j]) < ema50_val - pb_mult * atr_val:
                 was_below = True
                 break
 
         if not was_below:
             return None
 
-        # Current bar is in the pullback zone (within 1 ATR of EMA-50)
-        if not (ema50_val - atr_val <= close_val <= ema50_val + atr_val):
+        # Current bar is in the pullback zone (within PULLBACK_ATR_MULT * ATR of EMA-50)
+        if not (ema50_val - pb_mult * atr_val <= close_val <= ema50_val + pb_mult * atr_val):
             return None
 
         # --- momentum confirmation ---
@@ -349,26 +355,26 @@ class TrendContinuationStrategy(BaseStrategy):
         pullback_high = max(pullback_highs) if pullback_highs else high_val
 
         # Stop loss above pullback high plus 1.5 * ATR
-        sl = pullback_high + self._SL_ATR_MULT * atr_val
+        sl = pullback_high + self.params["SL_ATR_MULT"] * atr_val
 
         # Ensure minimum SL distance of 1.5 * ATR
         risk_dist = abs(sl - entry)
-        if risk_dist < self._SL_ATR_MULT * atr_val:
-            sl = entry + self._SL_ATR_MULT * atr_val
+        if risk_dist < self.params["SL_ATR_MULT"] * atr_val:
+            sl = entry + self.params["SL_ATR_MULT"] * atr_val
             risk_dist = abs(sl - entry)
 
         if risk_dist == 0:
             return None
 
         # TP1: 2:1 R:R
-        tp1 = entry - self._TP1_RR * risk_dist
+        tp1 = entry - self.params["TP1_RR"] * risk_dist
 
         # TP2: nearest swing low below entry, or 3:1 R:R fallback
         tp2 = self._find_swing_target_below(
             entry, swing_low_indices, lows, i,
         )
         if tp2 is None or tp2 >= tp1:
-            tp2 = entry - self._TP2_RR * risk_dist
+            tp2 = entry - self.params["TP2_RR"] * risk_dist
 
         rr = round((entry - tp1) / risk_dist, 2)
 
@@ -506,7 +512,7 @@ class TrendContinuationStrategy(BaseStrategy):
           +10  in London/NY overlap session
           +10  EMA-50/200 spread is widening (trend strengthening)
         """
-        score = float(self._BASE_CONFIDENCE)
+        score = float(self.params["BASE_CONFIDENCE"])
 
         # Bonus: VWAP confirmation
         if has_vwap and bar_idx < len(vwap):
