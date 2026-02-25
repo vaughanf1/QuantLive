@@ -297,8 +297,8 @@ class StrategySelector:
     ) -> list[BacktestResult]:
         """Fetch the most recent non-walk-forward BacktestResult per strategy.
 
-        Prefers ``window_days=60``; falls back to ``window_days=30`` if 60 is
-        not available for a given strategy.
+        Prefers shorter windows (14d) for faster regime adaptation; falls
+        back through 30d, 60d, then any available window.
         """
         # Get all active strategies
         strat_stmt = select(StrategyModel).where(StrategyModel.is_active.is_(True))
@@ -311,14 +311,12 @@ class StrategySelector:
 
         results: list[BacktestResult] = []
         for strat in strategies:
-            # Try window_days=60 first
-            bt = await self._latest_result_for(session, strat.id, window_days=60)
-            if bt is None:
-                # Fallback to window_days=30
-                bt = await self._latest_result_for(session, strat.id, window_days=30)
-            if bt is None:
-                # Try any non-walk-forward result
-                bt = await self._latest_result_for(session, strat.id, window_days=None)
+            # Prefer 14d (most recent regime), fallback through longer windows
+            bt = None
+            for window in [14, 30, 60, 7, None]:
+                bt = await self._latest_result_for(session, strat.id, window_days=window)
+                if bt is not None:
+                    break
             if bt is not None:
                 results.append(bt)
             else:

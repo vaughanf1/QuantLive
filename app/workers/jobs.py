@@ -83,12 +83,15 @@ async def refresh_candles(timeframe: str) -> None:
 
 
 async def run_daily_backtests() -> None:
-    """Run daily backtests for all registered strategies.
+    """Run backtests for all registered strategies.
 
-    Executed at 02:00 UTC via APScheduler CronTrigger. For each registered
-    strategy, runs rolling backtests on 30-day and 60-day windows, persists
-    results to the backtest_results table, then runs walk-forward validation
-    and persists OOS results with overfitting flags.
+    Executed every 4 hours via APScheduler CronTrigger. For each registered
+    strategy, runs rolling backtests on 7, 14, 30, and 60-day windows,
+    persists results to the backtest_results table, then runs walk-forward
+    validation and persists OOS results with overfitting flags.
+
+    Shorter windows (7d, 14d) capture recent regime changes faster so the
+    strategy selector can adapt quickly to shifting market conditions.
 
     Creates its own database session. All exceptions are caught at the top
     level to prevent scheduler crashes.
@@ -124,8 +127,8 @@ async def run_daily_backtests() -> None:
 
             df = candles_to_dataframe(candle_rows)
 
-            # Minimum candle count: 30 days * 24 H1 bars + 72 forward bars
-            min_candles = 30 * 24 + 72
+            # Minimum candle count: 7 days * 24 H1 bars + 72 forward bars
+            min_candles = 7 * 24 + 72
             if len(df) < min_candles:
                 logger.warning(
                     f"run_daily_backtests: insufficient candles "
@@ -176,8 +179,8 @@ async def run_daily_backtests() -> None:
                     )
                     continue
 
-                # Run standard backtests on 30-day and 60-day windows
-                for window_days in [30, 60]:
+                # Run standard backtests on 7, 14, 30, and 60-day windows
+                for window_days in [7, 14, 30, 60]:
                     try:
                         metrics, trades = runner.run_full_backtest(
                             strategy, df, window_days

@@ -89,12 +89,12 @@ def register_jobs() -> None:
 
     scheduler.add_job(
         run_daily_backtests,
-        trigger=CronTrigger(hour="2,14", minute=0, timezone="UTC"),
+        trigger=CronTrigger(hour="1,5,9,13,17,21", minute=0, timezone="UTC"),
         id="run_daily_backtests",
-        name="Run backtests (12h)",
+        name="Run backtests (4h)",
         replace_existing=True,
     )
-    logger.info("Registered job: run_daily_backtests (every 12h at 02:00, 14:00 UTC)")
+    logger.info("Registered job: run_daily_backtests (every 4h at 01,05,09,13,17,21 UTC)")
 
     scheduler.add_job(
         run_signal_scanner,
@@ -107,12 +107,12 @@ def register_jobs() -> None:
 
     scheduler.add_job(
         run_param_optimization,
-        trigger=CronTrigger(hour="0,6,12,18", minute=30, timezone="UTC"),
+        trigger=CronTrigger(hour="3,7,11,15,19,23", minute=30, timezone="UTC"),
         id="run_param_optimization",
-        name="Run param optimization (6h)",
+        name="Run param optimization (4h)",
         replace_existing=True,
     )
-    logger.info("Registered job: run_param_optimization (every 6h at :30 UTC)")
+    logger.info("Registered job: run_param_optimization (every 4h at 03,07,11,15,19,23 UTC)")
 
     scheduler.add_job(
         check_outcomes,
