@@ -71,6 +71,7 @@ class SignalGenerator:
         import app.strategies.liquidity_sweep  # noqa: F401
         import app.strategies.trend_continuation  # noqa: F401
         import app.strategies.breakout_expansion  # noqa: F401
+        import app.strategies.ema_momentum  # noqa: F401
 
         # 1. Get strategy instance (with optimized params if available)
         opt_params = await self._load_optimized_params(session, strategy_name)

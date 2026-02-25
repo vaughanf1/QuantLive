@@ -104,18 +104,26 @@ async def run_daily_backtests() -> None:
         from app.strategies.liquidity_sweep import LiquiditySweepStrategy  # noqa: F401
         from app.strategies.trend_continuation import TrendContinuationStrategy  # noqa: F401
         from app.strategies.breakout_expansion import BreakoutExpansionStrategy  # noqa: F401
+        from app.strategies.ema_momentum import EMAMomentumStrategy  # noqa: F401
 
         from app.services.backtester import BacktestRunner
         from app.services.walk_forward import WalkForwardValidator
 
+        import gc
         runner = BacktestRunner()
         wf_validator = WalkForwardValidator(runner=runner)
 
         async with async_session_factory() as session:
-            # Query all H1 XAUUSD candles ordered by timestamp ascending
+            # Query last 90 days of H1 XAUUSD candles (enough for 60d window + buffer)
+            from datetime import timezone as tz
+            cutoff = datetime.now(tz.utc) - timedelta(days=90)
             stmt = (
                 select(Candle)
-                .where(Candle.symbol == "XAUUSD", Candle.timeframe == "H1")
+                .where(
+                    Candle.symbol == "XAUUSD",
+                    Candle.timeframe == "H1",
+                    Candle.timestamp >= cutoff,
+                )
                 .order_by(Candle.timestamp.asc())
             )
             result = await session.execute(stmt)
@@ -272,6 +280,9 @@ async def run_daily_backtests() -> None:
                         f"run_daily_backtests: error in walk-forward validation "
                         f"for '{strategy_name}'"
                     )
+
+                # Free memory between strategies
+                gc.collect()
 
             await session.commit()
 
@@ -608,6 +619,7 @@ async def run_param_optimization() -> None:
         from app.strategies.liquidity_sweep import LiquiditySweepStrategy  # noqa: F401
         from app.strategies.trend_continuation import TrendContinuationStrategy  # noqa: F401
         from app.strategies.breakout_expansion import BreakoutExpansionStrategy  # noqa: F401
+        from app.strategies.ema_momentum import EMAMomentumStrategy  # noqa: F401
 
         from app.services.param_optimizer import ParamOptimizer, PARAM_RANGES
         from app.models.optimized_params import OptimizedParams
@@ -615,10 +627,16 @@ async def run_param_optimization() -> None:
         optimizer = ParamOptimizer()
 
         async with async_session_factory() as session:
-            # Load all H1 XAUUSD candles
+            # Load last 90 days of H1 XAUUSD candles (enough for optimization)
+            from datetime import datetime, timedelta, timezone as tz
+            cutoff = datetime.now(tz.utc) - timedelta(days=90)
             stmt = (
                 select(Candle)
-                .where(Candle.symbol == "XAUUSD", Candle.timeframe == "H1")
+                .where(
+                    Candle.symbol == "XAUUSD",
+                    Candle.timeframe == "H1",
+                    Candle.timestamp >= cutoff,
+                )
                 .order_by(Candle.timestamp.asc())
             )
             result = await session.execute(stmt)
@@ -650,6 +668,7 @@ async def run_param_optimization() -> None:
                 chat_id=settings.telegram_chat_id,
             )
 
+            import gc
             optimized_count = 0
 
             for strategy_name in PARAM_RANGES:
@@ -736,6 +755,9 @@ async def run_param_optimization() -> None:
                         "run_param_optimization: error optimizing '{}'",
                         strategy_name,
                     )
+
+                # Free memory between strategy optimizations
+                gc.collect()
 
             await session.commit()
 

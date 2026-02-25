@@ -107,12 +107,12 @@ def register_jobs() -> None:
 
     scheduler.add_job(
         run_param_optimization,
-        trigger=CronTrigger(hour="3,7,11,15,19,23", minute=30, timezone="UTC"),
+        trigger=CronTrigger(hour="3,9,15,21", minute=30, timezone="UTC"),
         id="run_param_optimization",
-        name="Run param optimization (4h)",
+        name="Run param optimization (6h)",
         replace_existing=True,
     )
-    logger.info("Registered job: run_param_optimization (every 4h at 03,07,11,15,19,23 UTC)")
+    logger.info("Registered job: run_param_optimization (every 6h at 03,09,15,21 UTC)")
 
     scheduler.add_job(
         check_outcomes,

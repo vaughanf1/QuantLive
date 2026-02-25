@@ -16,6 +16,7 @@ from app.strategies.base import (
 from app.strategies.liquidity_sweep import LiquiditySweepStrategy
 from app.strategies.trend_continuation import TrendContinuationStrategy
 from app.strategies.breakout_expansion import BreakoutExpansionStrategy
+from app.strategies.ema_momentum import EMAMomentumStrategy
 
 __all__ = [
     "BaseStrategy",
@@ -26,4 +27,5 @@ __all__ = [
     "LiquiditySweepStrategy",
     "TrendContinuationStrategy",
     "BreakoutExpansionStrategy",
+    "EMAMomentumStrategy",
 ]

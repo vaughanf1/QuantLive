@@ -12,6 +12,7 @@ Exports:
 from __future__ import annotations
 
 import asyncio
+import gc
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -51,10 +52,18 @@ PARAM_RANGES: dict[str, dict[str, tuple[float, float, float]]] = {
         "VOLUME_MULT": (1.0, 2.5, 0.25),
         "BREAKOUT_BODY_ATR": (1.0, 2.5, 0.25),
     },
+    "ema_momentum": {
+        "EMA_FAST": (15, 30, 5),
+        "EMA_MID": (40, 60, 10),
+        "BODY_ATR_MULT": (0.4, 1.0, 0.1),
+        "SL_ATR_MULT": (0.5, 2.0, 0.25),
+        "TP1_RR": (1.0, 2.5, 0.25),
+        "SWING_LOOKBACK": (10, 30, 5),
+    },
 }
 
 # Number of parameter combinations to sample per strategy
-NUM_SAMPLES = 200
+NUM_SAMPLES = 80
 
 # Minimum trades required for a combination to be considered
 MIN_TRADES_OPTIMIZE = 10
@@ -72,7 +81,7 @@ SCORE_WEIGHTS: dict[str, float] = {
 TOP_N_VALIDATE = 5
 
 # Monte Carlo settings
-MONTE_CARLO_RUNS = 1000
+MONTE_CARLO_RUNS = 300
 MONTE_CARLO_CONFIDENCE = 0.05  # reject if >5% of shuffles beat original
 
 # Multi-window validation windows
@@ -173,9 +182,11 @@ class ParamOptimizer:
                     idx, strategy_name,
                 )
 
-            # Yield to event loop every 10 backtests
+            # Yield to event loop every 10 backtests and free memory
             if idx > 0 and idx % 10 == 0:
                 await asyncio.sleep(0)
+            if idx > 0 and idx % 30 == 0:
+                gc.collect()
 
         if not scored:
             logger.warning(
