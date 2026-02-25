@@ -52,16 +52,24 @@ class SignalPipeline:
     async def run(self, session: AsyncSession) -> list[Signal]:
         """Execute the full signal pipeline.
 
+        Tries ALL qualifying strategies in ranked order (best first) until
+        one produces a valid signal. This prevents the system from going
+        silent when the top-ranked strategy has no setups but others do.
+
         Steps:
             1. Expire stale signals
-            2. Select best strategy
-            3. Generate candidate signals
-            4. Validate candidates (R:R, confidence, dedup, bias)
-            5. Risk check (daily loss, concurrent limit, position sizing)
-            6. H4 confluence boost (+5 confidence if H4 EMA agrees)
-            7. DXY correlation (non-blocking, informational)
-            8. Gold intelligence enrichment (session metadata, overlap boost)
-            9. Persist approved signals to DB
+            2. Rank all strategies
+            3. For each strategy (best first):
+               a. Generate candidate signals
+               b. Validate candidates (R:R, confidence, dedup, bias)
+               c. Pick best candidate
+               d. Check opposite-direction block
+               e. Risk check
+               f. If approved -> proceed to enrichment & persist
+            4. H4 confluence boost
+            5. DXY correlation
+            6. Gold intelligence enrichment
+            7. Persist approved signals to DB
 
         Args:
             session: Async database session.
@@ -73,95 +81,130 @@ class SignalPipeline:
         expired_count = await self.generator.expire_stale_signals(session)
         logger.info("Expired {} stale signal(s) before scan", expired_count)
 
-        # 2. Select best strategy
-        best = await self.selector.select_best(session)
-        if best is None:
+        # 2. Rank all strategies
+        ranked = await self.selector.select_all_ranked(session)
+        if not ranked:
             logger.info(
                 "No qualifying strategy found, skipping signal generation"
             )
             return []
 
-        strategy_name = best.strategy_name
-        regime = best.regime
+        regime = ranked[0].regime
 
-        # 3. Generate candidates
-        candidates = await self.generator.generate(session, strategy_name)
-        if not candidates:
+        # 3. Try each strategy in ranked order until one produces a signal
+        validated = []
+        strategy_name = None
+        for score in ranked:
+            strategy_name = score.strategy_name
             logger.info(
-                "No candidates from '{}', skipping", strategy_name
+                "Trying strategy '{}' (score={:.4f}, degraded={})",
+                strategy_name,
+                score.composite_score,
+                score.is_degraded,
             )
-            return []
 
-        # 4. Validate candidates
-        validated = await self.generator.validate(session, candidates)
-        if not validated:
-            logger.info("All candidates filtered out during validation")
-            return []
+            # 3a. Generate candidates
+            candidates = await self.generator.generate(session, strategy_name)
+            if not candidates:
+                logger.info(
+                    "No candidates from '{}', trying next strategy",
+                    strategy_name,
+                )
+                continue
 
-        # 4b. Pick the single best candidate (highest confidence).
-        #     Prevents conflicting BUY/SELL signals in the same run and
-        #     avoids flooding the user with multiple simultaneous trades.
-        validated.sort(
-            key=lambda c: float(c.confidence), reverse=True
-        )
-        best_candidate = validated[0]
-        if len(validated) > 1:
+            # 3b. Validate candidates
+            valid = await self.generator.validate(session, candidates)
+            if not valid:
+                logger.info(
+                    "All candidates from '{}' filtered out, trying next strategy",
+                    strategy_name,
+                )
+                continue
+
+            # 3c. Pick the single best candidate (highest confidence)
+            valid.sort(key=lambda c: float(c.confidence), reverse=True)
+            best_candidate = valid[0]
+            if len(valid) > 1:
+                logger.info(
+                    "Pipeline narrowed {} candidates to best: {} {} (conf={:.1f}%)",
+                    len(valid),
+                    best_candidate.direction.value,
+                    best_candidate.entry_price,
+                    float(best_candidate.confidence),
+                )
+            validated = [best_candidate]
+
+            # 3d. Block opposite-direction signal if one is already active
+            active_stmt = (
+                select(Signal.direction)
+                .where(Signal.status == "active")
+                .limit(1)
+            )
+            active_result = await session.execute(active_stmt)
+            active_dir = active_result.scalar_one_or_none()
+            if active_dir is not None:
+                new_dir = validated[0].direction.value
+                if new_dir != active_dir:
+                    logger.info(
+                        "Blocking {} signal from '{}': active {} signal already open",
+                        new_dir,
+                        strategy_name,
+                        active_dir,
+                    )
+                    validated = []
+                    continue
+
+            # 3e. Risk check
+            current_atr, baseline_atr = await self._compute_atr(session)
+            risk_results = await self.risk_manager.check(
+                session, validated,
+                current_atr=current_atr,
+                baseline_atr=baseline_atr,
+            )
+
+            approved_candidates = []
+            approved_sizes: dict[int, Decimal] = {}
+            for i, (candidate, risk_result) in enumerate(risk_results):
+                if risk_result.approved:
+                    approved_candidates.append(candidate)
+                    approved_sizes[len(approved_candidates) - 1] = (
+                        risk_result.position_size
+                    )
+                else:
+                    logger.info(
+                        "Candidate rejected by risk check: {}",
+                        risk_result.rejection_reason,
+                    )
+
+            if not approved_candidates:
+                logger.info(
+                    "All candidates from '{}' rejected by risk manager, trying next",
+                    strategy_name,
+                )
+                validated = []
+                continue
+
+            # Found a valid signal -- break out of the strategy loop
+            validated = approved_candidates
             logger.info(
-                "Pipeline narrowed {} candidates to best: {} {} (conf={:.1f}%)",
+                "Strategy '{}' produced {} approved candidate(s)",
+                strategy_name,
                 len(validated),
-                best_candidate.direction.value,
-                best_candidate.entry_price,
-                float(best_candidate.confidence),
             )
-        validated = [best_candidate]
-
-        # 4c. Block opposite-direction signal if one is already active.
-        active_stmt = (
-            select(Signal.direction)
-            .where(Signal.status == "active")
-            .limit(1)
-        )
-        active_result = await session.execute(active_stmt)
-        active_dir = active_result.scalar_one_or_none()
-        if active_dir is not None:
-            new_dir = validated[0].direction.value
-            if new_dir != active_dir:
-                logger.info(
-                    "Blocking {} signal: active {} signal already open",
-                    new_dir,
-                    active_dir,
-                )
-                return []
-
-        # 5. Risk check (with real ATR for volatility-adjusted sizing)
-        current_atr, baseline_atr = await self._compute_atr(session)
-        risk_results = await self.risk_manager.check(
-            session, validated,
-            current_atr=current_atr,
-            baseline_atr=baseline_atr,
-        )
-
-        # Filter to only approved candidates
-        approved_candidates = []
-        approved_sizes: dict[int, Decimal] = {}  # index -> position_size
-        for i, (candidate, risk_result) in enumerate(risk_results):
-            if risk_result.approved:
-                approved_candidates.append(candidate)
-                approved_sizes[len(approved_candidates) - 1] = (
-                    risk_result.position_size
-                )
-            else:
-                logger.info(
-                    "Candidate rejected by risk check: {}",
-                    risk_result.rejection_reason,
-                )
-
-        if not approved_candidates:
-            logger.info("All candidates rejected by risk manager")
+            break
+        else:
+            # Exhausted all strategies with no valid signal
+            logger.info(
+                "All {} strategies tried, none produced valid signals",
+                len(ranked),
+            )
             return []
 
-        # 6. H4 confluence boost
-        for i, candidate in enumerate(approved_candidates):
+        if not validated or strategy_name is None:
+            return []
+
+        # 4. H4 confluence boost
+        for i, candidate in enumerate(validated):
             has_confluence = await self.selector.check_h4_confluence(
                 session, candidate.direction.value
             )
@@ -169,7 +212,7 @@ class SignalPipeline:
                 boosted = min(float(candidate.confidence) + 5, 100.0)
                 new_confidence = Decimal(str(round(boosted, 2)))
                 new_reasoning = candidate.reasoning + " | H4 confluence confirmed"
-                approved_candidates[i] = candidate.model_copy(
+                validated[i] = candidate.model_copy(
                     update={
                         "confidence": new_confidence,
                         "reasoning": new_reasoning,
@@ -182,14 +225,13 @@ class SignalPipeline:
                     new_confidence,
                 )
 
-        # 7. DXY correlation (non-blocking, informational)
+        # 5. DXY correlation (non-blocking, informational)
         dxy_info = await self.gold_intel.get_dxy_correlation(session)
 
-        # 8. Gold intelligence enrichment
-        enriched = self.gold_intel.enrich(approved_candidates, dxy_info)
+        # 6. Gold intelligence enrichment
+        enriched = self.gold_intel.enrich(validated, dxy_info)
 
-        # 9. Persist signals
-        # Look up strategy_id from Strategy table
+        # 7. Persist signals
         strat_stmt = select(StrategyModel).where(
             StrategyModel.name == strategy_name
         )
@@ -209,7 +251,6 @@ class SignalPipeline:
         for i, candidate in enumerate(enriched):
             expires_at = self.generator.compute_expiry(candidate)
 
-            # Append position size to reasoning
             position_size = approved_sizes.get(i)
             reasoning = candidate.reasoning
             if position_size is not None:

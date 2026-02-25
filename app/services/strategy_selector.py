@@ -130,10 +130,21 @@ class StrategySelector:
         Returns ``None`` when no strategy qualifies (all excluded or
         insufficient backtest data).
         """
+        ranked = await self.select_all_ranked(session)
+        if not ranked:
+            return None
+        return ranked[0]
+
+    async def select_all_ranked(self, session: AsyncSession) -> list[StrategyScore]:
+        """Return all qualifying strategies ranked by composite score.
+
+        Non-degraded strategies are ranked first, then degraded ones.
+        Returns an empty list when no strategy qualifies.
+        """
         results = await self._fetch_latest_results(session)
         if not results:
             logger.warning("No qualifying BacktestResult rows found -- skipping selection")
-            return None
+            return []
 
         # Filter by minimum trade count
         qualified: list[BacktestResult] = []
@@ -150,7 +161,7 @@ class StrategySelector:
 
         if not qualified:
             logger.warning("All strategies excluded due to insufficient trades")
-            return None
+            return []
 
         # Compute raw composite scores
         scores = self._compute_scores(qualified)
@@ -209,14 +220,12 @@ class StrategySelector:
         # Re-sort: non-degraded first, then by composite_score descending
         scores.sort(key=lambda s: (not s.is_degraded, s.composite_score), reverse=True)
 
-        best = scores[0]
         logger.info(
-            "Selected strategy '{}' (score={:.4f}, degraded={})",
-            best.strategy_name,
-            best.composite_score,
-            best.is_degraded,
+            "Ranked {} strategies: {}",
+            len(scores),
+            [(s.strategy_name, round(s.composite_score, 4), s.is_degraded) for s in scores],
         )
-        return best
+        return scores
 
     async def check_h4_confluence(
         self, session: AsyncSession, direction: str
