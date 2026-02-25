@@ -44,10 +44,10 @@ class BreakoutExpansionStrategy(BaseStrategy):
     DEFAULT_PARAMS: ClassVar[dict[str, float]] = {
         "ATR_LENGTH": 14,
         "ATR_MA_LENGTH": 50,
-        "ATR_COMPRESSION": 0.5,
-        "MIN_CONSOL_BARS": 10,
+        "ATR_COMPRESSION": 0.65,
+        "MIN_CONSOL_BARS": 6,
         "VOLUME_MULT": 1.5,
-        "WIDE_RANGE_ATR_MULT": 3.0,
+        "WIDE_RANGE_ATR_MULT": 2.0,
         "BREAKOUT_BODY_ATR": 1.5,
         "BASE_CONFIDENCE": 50,
         "LONDON_OPEN_START": 7,

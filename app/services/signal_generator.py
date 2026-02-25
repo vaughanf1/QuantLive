@@ -18,8 +18,8 @@ from app.models.signal import Signal
 # ---------------------------------------------------------------------------
 
 MIN_RR: float = 1.5  # Minimum risk:reward ratio (1:1.5)
-MIN_CONFIDENCE: float = 50.0  # Minimum confidence threshold (%)
-MAX_SL_PIPS: float = 250.0  # Max stop loss distance (pips); skip trade if wider
+MIN_CONFIDENCE: float = 45.0  # Minimum confidence threshold (%)
+MAX_SL_PIPS: float = 150.0  # Max stop loss distance (pips); skip trade if wider
 PIP_VALUE: float = 0.10  # XAUUSD: $0.10 price movement per pip
 DEDUP_WINDOW_HOURS: int = 1  # Same-direction dedup window (hours)
 EXPIRY_HOURS: dict[str, int] = {
