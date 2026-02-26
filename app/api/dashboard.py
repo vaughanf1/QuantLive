@@ -10,7 +10,9 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+from app.models.backtest_result import BacktestResult
 from app.models.candle import Candle
+from app.models.optimized_params import OptimizedParams
 from app.models.outcome import Outcome
 from app.models.signal import Signal
 from app.models.strategy import Strategy
@@ -167,6 +169,140 @@ async def dashboard_data(
     except Exception:
         pass
 
+    # --- Backtest results (latest per strategy per window) ---
+    backtests = []
+    total_backtests = 0
+    try:
+        # Count total backtest results
+        result = await session.execute(
+            select(func.count()).select_from(BacktestResult)
+        )
+        total_backtests = result.scalar_one()
+
+        # Get latest backtest result per strategy per window_days (non-walk-forward)
+        from sqlalchemy import and_
+
+        # Subquery: max created_at per (strategy_id, window_days)
+        latest_sub = (
+            select(
+                BacktestResult.strategy_id,
+                BacktestResult.window_days,
+                func.max(BacktestResult.created_at).label("max_created"),
+            )
+            .where(
+                BacktestResult.is_walk_forward.isnot(True),
+            )
+            .group_by(BacktestResult.strategy_id, BacktestResult.window_days)
+            .subquery()
+        )
+
+        bt_query = (
+            select(BacktestResult, Strategy.name)
+            .join(Strategy, BacktestResult.strategy_id == Strategy.id)
+            .join(
+                latest_sub,
+                and_(
+                    BacktestResult.strategy_id == latest_sub.c.strategy_id,
+                    BacktestResult.window_days == latest_sub.c.window_days,
+                    BacktestResult.created_at == latest_sub.c.max_created,
+                ),
+            )
+            .order_by(Strategy.name, BacktestResult.window_days)
+        )
+        result = await session.execute(bt_query)
+        for bt, strat_name in result.all():
+            backtests.append({
+                "strategy": strat_name,
+                "window_days": bt.window_days,
+                "win_rate": float(bt.win_rate) if bt.win_rate is not None else None,
+                "profit_factor": float(bt.profit_factor) if bt.profit_factor is not None else None,
+                "sharpe_ratio": float(bt.sharpe_ratio) if bt.sharpe_ratio is not None else None,
+                "max_drawdown": float(bt.max_drawdown) if bt.max_drawdown is not None else None,
+                "expectancy": float(bt.expectancy) if bt.expectancy is not None else None,
+                "total_trades": bt.total_trades,
+                "is_walk_forward": bt.is_walk_forward or False,
+                "is_overfitted": bt.is_overfitted,
+                "created": bt.created_at.isoformat() if bt.created_at else None,
+            })
+    except Exception:
+        pass
+
+    # --- Walk-forward validation results (latest per strategy) ---
+    walk_forward = []
+    try:
+        wf_latest_sub = (
+            select(
+                BacktestResult.strategy_id,
+                func.max(BacktestResult.created_at).label("max_created"),
+            )
+            .where(BacktestResult.is_walk_forward.is_(True))
+            .group_by(BacktestResult.strategy_id)
+            .subquery()
+        )
+        wf_query = (
+            select(BacktestResult, Strategy.name)
+            .join(Strategy, BacktestResult.strategy_id == Strategy.id)
+            .join(
+                wf_latest_sub,
+                and_(
+                    BacktestResult.strategy_id == wf_latest_sub.c.strategy_id,
+                    BacktestResult.created_at == wf_latest_sub.c.max_created,
+                ),
+            )
+            .order_by(Strategy.name)
+        )
+        result = await session.execute(wf_query)
+        for bt, strat_name in result.all():
+            walk_forward.append({
+                "strategy": strat_name,
+                "win_rate": float(bt.win_rate) if bt.win_rate is not None else None,
+                "profit_factor": float(bt.profit_factor) if bt.profit_factor is not None else None,
+                "total_trades": bt.total_trades,
+                "is_overfitted": bt.is_overfitted,
+                "wfe": float(bt.walk_forward_efficiency) if bt.walk_forward_efficiency is not None else None,
+                "created": bt.created_at.isoformat() if bt.created_at else None,
+            })
+    except Exception:
+        pass
+
+    # --- Optimized params (latest active per strategy) ---
+    opt_params_list = []
+    try:
+        opt_latest_sub = (
+            select(
+                OptimizedParams.strategy_name,
+                func.max(OptimizedParams.created_at).label("max_created"),
+            )
+            .where(OptimizedParams.is_active.is_(True))
+            .group_by(OptimizedParams.strategy_name)
+            .subquery()
+        )
+        opt_query = (
+            select(OptimizedParams)
+            .join(
+                opt_latest_sub,
+                and_(
+                    OptimizedParams.strategy_name == opt_latest_sub.c.strategy_name,
+                    OptimizedParams.created_at == opt_latest_sub.c.max_created,
+                ),
+            )
+            .order_by(OptimizedParams.strategy_name)
+        )
+        result = await session.execute(opt_query)
+        for opt in result.scalars().all():
+            opt_params_list.append({
+                "strategy": opt.strategy_name,
+                "win_rate": float(opt.win_rate) if opt.win_rate is not None else None,
+                "profit_factor": float(opt.profit_factor) if opt.profit_factor is not None else None,
+                "total_trades": opt.total_trades,
+                "wfe_ratio": float(opt.wfe_ratio) if opt.wfe_ratio is not None else None,
+                "is_overfitted": opt.is_overfitted,
+                "combinations_tested": opt.combinations_tested,
+                "created": opt.created_at.isoformat() if opt.created_at else None,
+            })
+    except Exception:
+        pass
+
     return {
         "system": {
             "status": "operational" if db_status == "connected" and scheduler_status == "running" else "degraded",
@@ -190,4 +326,10 @@ async def dashboard_data(
             "total_pnl": round(total_pnl, 2),
         },
         "strategies": strategies,
+        "backtests": {
+            "total": total_backtests,
+            "results": backtests,
+            "walk_forward": walk_forward,
+            "optimized_params": opt_params_list,
+        },
     }

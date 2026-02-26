@@ -592,6 +592,94 @@
             </div>
         </div>
 
+        <!-- BACKTEST RESULTS -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <div class="card-title">Backtest Results</div>
+                <div class="card-badge accent" id="bt-total" style="background: var(--accent-dim); color: var(--accent);">0 total</div>
+            </div>
+            <div class="card-body" style="padding: 0; overflow-x: auto;">
+                <table class="table" id="bt-table">
+                    <thead>
+                        <tr>
+                            <th>Strategy</th>
+                            <th>Window</th>
+                            <th>Win Rate</th>
+                            <th>Profit Factor</th>
+                            <th>Sharpe</th>
+                            <th>Max DD</th>
+                            <th>Expectancy</th>
+                            <th>Trades</th>
+                            <th>Last Run</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bt-body">
+                    </tbody>
+                </table>
+                <div class="empty-state" id="bt-empty" style="display: none;">
+                    <div class="icon">~</div>
+                    No backtest results yet — first run at next scheduled cycle
+                </div>
+            </div>
+        </div>
+
+        <!-- WALK-FORWARD & OPTIMIZATION -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Walk-Forward Validation</div>
+                </div>
+                <div class="card-body" style="padding: 0; overflow-x: auto;">
+                    <table class="table" id="wf-table">
+                        <thead>
+                            <tr>
+                                <th>Strategy</th>
+                                <th>WR (OOS)</th>
+                                <th>PF (OOS)</th>
+                                <th>Trades</th>
+                                <th>WFE</th>
+                                <th>Overfitted</th>
+                                <th>Last Run</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wf-body">
+                        </tbody>
+                    </table>
+                    <div class="empty-state" id="wf-empty" style="display: none;">
+                        <div class="icon">~</div>
+                        No walk-forward data yet
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Optimized Parameters</div>
+                </div>
+                <div class="card-body" style="padding: 0; overflow-x: auto;">
+                    <table class="table" id="opt-table">
+                        <thead>
+                            <tr>
+                                <th>Strategy</th>
+                                <th>Win Rate</th>
+                                <th>PF</th>
+                                <th>Trades</th>
+                                <th>WFE</th>
+                                <th>Combos</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="opt-body">
+                        </tbody>
+                    </table>
+                    <div class="empty-state" id="opt-empty" style="display: none;">
+                        <div class="icon">~</div>
+                        No optimization data yet
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- JOBS -->
         <div class="card">
             <div class="card-header">
@@ -813,6 +901,101 @@ async function refreshDashboard() {
                     </div>
                 </div>
             `).join('');
+        }
+
+        // --- Backtest results ---
+        const bt = data.backtests || {};
+        document.getElementById('bt-total').textContent = `${bt.total || 0} total`;
+        const btBody = document.getElementById('bt-body');
+        const btEmpty = document.getElementById('bt-empty');
+        const btResults = bt.results || [];
+        if (btResults.length === 0) {
+            btBody.innerHTML = '';
+            btEmpty.style.display = 'block';
+        } else {
+            btEmpty.style.display = 'none';
+            btBody.innerHTML = btResults.map(b => {
+                const wr = b.win_rate !== null ? (b.win_rate * 100).toFixed(1) + '%' : '--';
+                const wrColor = b.win_rate !== null ? (b.win_rate >= 0.5 ? 'var(--green)' : 'var(--red)') : 'var(--text-dim)';
+                const pf = b.profit_factor !== null ? b.profit_factor.toFixed(2) : '--';
+                const pfColor = b.profit_factor !== null ? (b.profit_factor >= 1.0 ? 'var(--green)' : 'var(--red)') : 'var(--text-dim)';
+                const sr = b.sharpe_ratio !== null ? b.sharpe_ratio.toFixed(2) : '--';
+                const dd = b.max_drawdown !== null ? (b.max_drawdown * 100).toFixed(1) + '%' : '--';
+                const exp = b.expectancy !== null ? b.expectancy.toFixed(2) : '--';
+                return `
+                    <tr>
+                        <td style="color: var(--text-primary); font-size: 12px;">${b.strategy}</td>
+                        <td>${b.window_days}d</td>
+                        <td style="color: ${wrColor}">${wr}</td>
+                        <td style="color: ${pfColor}">${pf}</td>
+                        <td>${sr}</td>
+                        <td style="color: var(--amber)">${dd}</td>
+                        <td>${exp}</td>
+                        <td>${b.total_trades}</td>
+                        <td style="font-size: 11px; color: var(--text-dim);">${formatDateTime(b.created)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- Walk-forward validation ---
+        const wfBody = document.getElementById('wf-body');
+        const wfEmpty = document.getElementById('wf-empty');
+        const wfResults = bt.walk_forward || [];
+        if (wfResults.length === 0) {
+            wfBody.innerHTML = '';
+            wfEmpty.style.display = 'block';
+        } else {
+            wfEmpty.style.display = 'none';
+            wfBody.innerHTML = wfResults.map(w => {
+                const wr = w.win_rate !== null ? (w.win_rate * 100).toFixed(1) + '%' : '--';
+                const pf = w.profit_factor !== null ? w.profit_factor.toFixed(2) : '--';
+                const wfe = w.wfe !== null ? w.wfe.toFixed(3) : '--';
+                const overfitTag = w.is_overfitted
+                    ? '<span class="result-tag sl">YES</span>'
+                    : '<span class="result-tag tp">NO</span>';
+                return `
+                    <tr>
+                        <td style="color: var(--text-primary); font-size: 12px;">${w.strategy}</td>
+                        <td>${wr}</td>
+                        <td>${pf}</td>
+                        <td>${w.total_trades}</td>
+                        <td>${wfe}</td>
+                        <td>${overfitTag}</td>
+                        <td style="font-size: 11px; color: var(--text-dim);">${formatDateTime(w.created)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- Optimized params ---
+        const optBody = document.getElementById('opt-body');
+        const optEmpty = document.getElementById('opt-empty');
+        const optResults = bt.optimized_params || [];
+        if (optResults.length === 0) {
+            optBody.innerHTML = '';
+            optEmpty.style.display = 'block';
+        } else {
+            optEmpty.style.display = 'none';
+            optBody.innerHTML = optResults.map(o => {
+                const wr = o.win_rate !== null ? (o.win_rate * 100).toFixed(1) + '%' : '--';
+                const pf = o.profit_factor !== null ? o.profit_factor.toFixed(2) : '--';
+                const wfe = o.wfe_ratio !== null ? o.wfe_ratio.toFixed(3) : '--';
+                const statusTag = o.is_overfitted
+                    ? '<span class="result-tag sl">OVERFITTED</span>'
+                    : '<span class="result-tag tp">ACTIVE</span>';
+                return `
+                    <tr>
+                        <td style="color: var(--text-primary); font-size: 12px;">${o.strategy}</td>
+                        <td>${wr}</td>
+                        <td>${pf}</td>
+                        <td>${o.total_trades}</td>
+                        <td>${wfe}</td>
+                        <td>${o.combinations_tested || '--'}</td>
+                        <td>${statusTag}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         // --- Jobs ---
