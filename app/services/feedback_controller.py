@@ -42,7 +42,7 @@ class FeedbackController:
         - Also resets when consecutive loss count drops below 5 (after a win)
     """
 
-    CONSECUTIVE_LOSS_LIMIT = 5
+    CONSECUTIVE_LOSS_LIMIT = 8
     DRAWDOWN_MULTIPLIER = 2.0
     COOLDOWN_HOURS = 24
     DEGRADATION_RECOVERY_DAYS = 7

@@ -81,7 +81,7 @@ METRIC_WEIGHTS: dict[str, float] = {
 # Minimum trade threshold (SEL-07)
 # ---------------------------------------------------------------------------
 
-MIN_TRADES = 20
+MIN_TRADES = 8
 
 # ---------------------------------------------------------------------------
 # Live performance blending (06-02)
