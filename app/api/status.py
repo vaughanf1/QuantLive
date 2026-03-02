@@ -225,10 +225,11 @@ async def debug_api_test():
 
 @router.get("/debug/signal-diagnostic")
 async def signal_diagnostic():
-    """Run a full signal pipeline diagnostic and return detailed results.
+    """Run the FULL signal pipeline as a dry run and return step-by-step results.
 
-    Shows exactly what each strategy sees, how many candidates it produces,
-    and why candidates get filtered out. Does NOT persist or send signals.
+    Mirrors the exact code path of SignalPipeline.run() including optimized
+    params, dedup checks, opposite-direction blocks, and risk manager checks.
+    Does NOT persist or send signals.
     """
     import traceback as tb_mod
     from datetime import datetime, timezone
@@ -237,43 +238,31 @@ async def signal_diagnostic():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "strategies": [],
         "circuit_breaker": None,
+        "pipeline_steps": [],
         "errors": [],
     }
 
     try:
-        from sqlalchemy import and_, select
-
         from app.database import async_session_factory
-        from app.models.candle import Candle
-        from app.models.strategy import Strategy as StrategyModel
         from app.services.feedback_controller import FeedbackController
-        from app.services.signal_generator import (
-            MIN_CONFIDENCE,
-            MIN_RR,
-            MAX_SL_PIPS,
-            PIP_VALUE,
-        )
+        from app.services.signal_generator import SignalGenerator
+        from app.services.risk_manager import RiskManager
         from app.services.strategy_selector import StrategySelector
-        from app.strategies.base import (
-            BaseStrategy,
-            candles_to_dataframe,
-            InsufficientDataError,
-        )
-        import app.strategies.liquidity_sweep  # noqa: F401
-        import app.strategies.trend_continuation  # noqa: F401
-        import app.strategies.breakout_expansion  # noqa: F401
-        import app.strategies.ema_momentum  # noqa: F401
 
         async with async_session_factory() as session:
-            # Check circuit breaker
+            # Step 1: Circuit breaker
             fb = FeedbackController()
             cb_active = await fb.check_circuit_breaker(session)
+            consec_losses = await fb._count_consecutive_losses(session)
             results["circuit_breaker"] = {
                 "active": cb_active,
-                "consecutive_losses": await fb._count_consecutive_losses(session),
+                "consecutive_losses": consec_losses,
             }
+            if cb_active:
+                results["pipeline_steps"].append("BLOCKED by circuit breaker")
+                return results
 
-            # Get ranked strategies
+            # Step 2: Rank strategies
             selector = StrategySelector()
             ranked = await selector.select_all_ranked(session)
             results["ranked_strategies"] = [
@@ -285,113 +274,122 @@ async def signal_diagnostic():
                 }
                 for s in ranked
             ]
-
             if not ranked:
-                # Check why -- are strategies active?
-                strat_stmt = select(StrategyModel)
-                strat_result = await session.execute(strat_stmt)
-                all_strats = list(strat_result.scalars().all())
-                results["all_db_strategies"] = [
-                    {"name": s.name, "is_active": s.is_active}
-                    for s in all_strats
-                ]
-                results["errors"].append("No qualifying strategies found")
+                results["pipeline_steps"].append("BLOCKED: no qualifying strategies")
                 return results
 
-            # Try each strategy
-            registry = BaseStrategy.get_registry()
+            # Step 3: Try each strategy (mirrors SignalPipeline.run)
+            generator = SignalGenerator()
+            risk_manager = RiskManager()
+
             for score in ranked:
                 strat_info: dict = {
                     "name": score.strategy_name,
-                    "score": round(score.composite_score, 4),
-                    "degraded": score.is_degraded,
-                    "candidates_raw": 0,
-                    "candidates_valid": 0,
-                    "rejection_reasons": [],
-                    "error": None,
+                    "pipeline_steps": [],
                 }
 
                 try:
-                    strategy_cls = registry.get(score.strategy_name)
-                    if not strategy_cls:
-                        strat_info["error"] = "Not in registry"
-                        results["strategies"].append(strat_info)
-                        continue
-
-                    strategy = strategy_cls()
-                    primary_tf = strategy.required_timeframes[0]
-                    limit = strategy.min_candles + 50
-
-                    # Get candles
-                    stmt = (
-                        select(Candle)
-                        .where(and_(
-                            Candle.symbol == "XAUUSD",
-                            Candle.timeframe == primary_tf,
-                        ))
-                        .order_by(Candle.timestamp.desc())
-                        .limit(limit)
-                    )
-                    result = await session.execute(stmt)
-                    candles = result.scalars().all()
-
-                    strat_info["candles_available"] = len(candles)
-                    strat_info["min_candles_required"] = strategy.min_candles
-
-                    if not candles:
-                        strat_info["error"] = f"No {primary_tf} candles in DB"
-                        results["strategies"].append(strat_info)
-                        continue
-
-                    df = candles_to_dataframe(list(candles))
-                    strat_info["candle_range"] = {
-                        "first": str(df["timestamp"].iloc[0]),
-                        "last": str(df["timestamp"].iloc[-1]),
-                        "bars_scanned": max(0, len(df) - strategy.min_candles),
-                    }
-
-                    # Run analyze
-                    candidates = strategy.analyze(df)
+                    # 3a: Generate (with optimized params like the real pipeline)
+                    candidates = await generator.generate(session, score.strategy_name)
                     strat_info["candidates_raw"] = len(candidates)
-
                     if not candidates:
-                        strat_info["rejection_reasons"].append(
-                            "analyze() returned 0 candidates - no pattern match in data"
+                        strat_info["pipeline_steps"].append("generate() returned 0 candidates")
+                        results["strategies"].append(strat_info)
+                        continue
+
+                    # Show candidate details
+                    strat_info["candidate_details"] = [
+                        {
+                            "direction": c.direction.value,
+                            "entry": str(c.entry_price),
+                            "sl": str(c.stop_loss),
+                            "tp1": str(c.take_profit_1),
+                            "rr": str(c.risk_reward),
+                            "confidence": str(c.confidence),
+                        }
+                        for c in candidates
+                    ]
+
+                    # 3b: Validate (full validation with dedup)
+                    valid = await generator.validate(session, candidates)
+                    strat_info["candidates_after_validate"] = len(valid)
+                    if not valid:
+                        strat_info["pipeline_steps"].append(
+                            f"All {len(candidates)} candidates filtered by validate()"
                         )
                         results["strategies"].append(strat_info)
                         continue
 
-                    # Check validation filters on each candidate
-                    valid_count = 0
-                    for c in candidates:
-                        rr = float(c.risk_reward)
-                        conf = float(c.confidence)
-                        sl_dist = abs(float(c.entry_price) - float(c.stop_loss))
-                        sl_pips = sl_dist / PIP_VALUE
+                    # 3c: Pick best
+                    valid.sort(key=lambda c: float(c.confidence), reverse=True)
+                    best = valid[0]
+                    strat_info["best_candidate"] = {
+                        "direction": best.direction.value,
+                        "entry": str(best.entry_price),
+                        "confidence": str(best.confidence),
+                        "rr": str(best.risk_reward),
+                    }
 
-                        if rr < MIN_RR:
-                            strat_info["rejection_reasons"].append(
-                                f"R:R {rr:.2f} < {MIN_RR} ({c.direction.value} @ {c.entry_price})"
-                            )
-                        elif sl_pips > MAX_SL_PIPS:
-                            strat_info["rejection_reasons"].append(
-                                f"SL {sl_pips:.0f} pips > {MAX_SL_PIPS} ({c.direction.value} @ {c.entry_price})"
-                            )
-                        elif conf < MIN_CONFIDENCE:
-                            strat_info["rejection_reasons"].append(
-                                f"Confidence {conf:.1f}% < {MIN_CONFIDENCE}% ({c.direction.value} @ {c.entry_price})"
-                            )
+                    # 3d: Opposite-direction block
+                    from sqlalchemy import select as sa_select
+                    from app.models.signal import Signal
+                    active_stmt = (
+                        sa_select(Signal.direction)
+                        .where(Signal.status == "active")
+                        .limit(1)
+                    )
+                    active_result = await session.execute(active_stmt)
+                    active_dir = active_result.scalar_one_or_none()
+                    strat_info["active_direction"] = active_dir
+
+                    if active_dir is not None and best.direction.value != active_dir:
+                        strat_info["pipeline_steps"].append(
+                            f"BLOCKED: opposite direction ({best.direction.value} vs active {active_dir})"
+                        )
+                        results["strategies"].append(strat_info)
+                        continue
+
+                    # 3e: Risk check
+                    from app.services.signal_pipeline import SignalPipeline
+                    pipeline = SignalPipeline(selector, generator, risk_manager, None)
+                    current_atr, baseline_atr = await pipeline._compute_atr(session)
+                    strat_info["atr"] = {
+                        "current": round(current_atr, 4),
+                        "baseline": round(baseline_atr, 4),
+                    }
+
+                    risk_results = await risk_manager.check(
+                        session, [best],
+                        current_atr=current_atr,
+                        baseline_atr=baseline_atr,
+                    )
+                    for candidate, risk_result in risk_results:
+                        if risk_result.approved:
+                            strat_info["risk_approved"] = True
+                            strat_info["position_size"] = str(risk_result.position_size)
+                            strat_info["pipeline_steps"].append("WOULD GENERATE SIGNAL")
                         else:
-                            valid_count += 1
+                            strat_info["risk_approved"] = False
+                            strat_info["risk_rejection"] = risk_result.rejection_reason
+                            strat_info["pipeline_steps"].append(
+                                f"BLOCKED by risk: {risk_result.rejection_reason}"
+                            )
 
-                    strat_info["candidates_valid"] = valid_count
+                    results["strategies"].append(strat_info)
 
-                except InsufficientDataError as e:
-                    strat_info["error"] = f"Insufficient data: {e}"
+                    # If this strategy would produce a signal, stop (like real pipeline)
+                    if strat_info.get("risk_approved"):
+                        results["pipeline_steps"].append(
+                            f"Signal WOULD be generated from '{score.strategy_name}'"
+                        )
+                        break
+
                 except Exception as e:
                     strat_info["error"] = f"{type(e).__name__}: {e}"
-
-                results["strategies"].append(strat_info)
+                    strat_info["traceback"] = tb_mod.format_exc()
+                    results["strategies"].append(strat_info)
+            else:
+                results["pipeline_steps"].append("All strategies exhausted, no signal")
 
     except Exception as e:
         results["errors"].append(f"{type(e).__name__}: {e}")
