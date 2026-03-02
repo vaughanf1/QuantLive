@@ -134,6 +134,45 @@ class SignalGenerator:
             )
             return []
 
+        # 5. Filter stale candidates -- only keep signals from recent candles.
+        # Strategies scan the entire lookback window and produce signals for
+        # historical bars where patterns occurred. But those entry prices are
+        # stale -- the market has moved, so the outcome detector would
+        # instantly trigger TP/SL. Only accept signals from the last 3 bars.
+        if candidates:
+            # Staleness cutoff: 3x the timeframe interval
+            tf_hours = {"M15": 0.25, "H1": 1, "H4": 4, "D1": 24}
+            interval_hours = tf_hours.get(primary_tf, 1)
+            staleness_cutoff = datetime.now(timezone.utc) - timedelta(
+                hours=interval_hours * 3
+            )
+
+            fresh = []
+            stale_count = 0
+            for c in candidates:
+                c_ts = c.timestamp
+                if c_ts is not None:
+                    # Handle naive timestamps
+                    if c_ts.tzinfo is None:
+                        c_ts = c_ts.replace(tzinfo=timezone.utc)
+                    if c_ts >= staleness_cutoff:
+                        fresh.append(c)
+                    else:
+                        stale_count += 1
+                else:
+                    fresh.append(c)  # no timestamp = keep
+
+            if stale_count > 0:
+                logger.info(
+                    "Strategy '{}': filtered {} stale candidates "
+                    "(older than {}), {} fresh remain",
+                    strategy_name,
+                    stale_count,
+                    staleness_cutoff.isoformat(),
+                    len(fresh),
+                )
+            candidates = fresh
+
         if candidates:
             logger.info(
                 "Strategy '{}' produced {} candidate signal(s)",
