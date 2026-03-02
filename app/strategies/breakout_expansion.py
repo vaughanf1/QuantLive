@@ -50,6 +50,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
         "WIDE_RANGE_ATR_MULT": 2.0,
         "BREAKOUT_BODY_ATR": 1.5,
         "MIN_RISK_ATR": 1.5,
+        "MIN_SL_PRICE": 10.0,
         "BASE_CONFIDENCE": 50,
         "LONDON_OPEN_START": 7,
         "LONDON_OPEN_END": 9,
@@ -243,8 +244,11 @@ class BreakoutExpansionStrategy(BaseStrategy):
 
         risk_dist = abs(entry - sl)
 
-        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
-        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        # Enforce minimum SL distance: max of ATR-based and absolute floor
+        min_risk = max(
+            self.params["MIN_RISK_ATR"] * atr_val,
+            self.params["MIN_SL_PRICE"],
+        )
         if risk_dist < min_risk:
             sl = entry - min_risk
             risk_dist = min_risk
@@ -252,7 +256,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
         if risk_dist == 0:
             risk_dist = atr_val  # fallback
 
-        # TP targets: use risk_dist (not range_height) for proper R:R
+        # TP targets: use risk_dist for proper R:R
         tp1 = entry + 1.5 * risk_dist
         tp2 = entry + 3.0 * risk_dist
 
@@ -314,8 +318,11 @@ class BreakoutExpansionStrategy(BaseStrategy):
 
         risk_dist = abs(sl - entry)
 
-        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
-        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        # Enforce minimum SL distance: max of ATR-based and absolute floor
+        min_risk = max(
+            self.params["MIN_RISK_ATR"] * atr_val,
+            self.params["MIN_SL_PRICE"],
+        )
         if risk_dist < min_risk:
             sl = entry + min_risk
             risk_dist = min_risk

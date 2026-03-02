@@ -53,6 +53,7 @@ class TrendContinuationStrategy(BaseStrategy):
         "ATR_LENGTH": 14,
         "PULLBACK_ATR_MULT": 1.5,
         "SL_ATR_MULT": 1.5,
+        "MIN_SL_PRICE": 10.0,
         "TP1_RR": 2.0,
         "TP2_RR": 3.0,
         "LOOKBACK_PULLBACK": 8,
@@ -224,14 +225,18 @@ class TrendContinuationStrategy(BaseStrategy):
         pullback_lows = [float(lows[j]) for j in range(lookback_start, i + 1)]
         pullback_low = min(pullback_lows) if pullback_lows else low_val
 
-        # Stop loss below pullback low minus 1.5 * ATR
+        # Stop loss below pullback low minus SL_ATR_MULT * ATR
         sl = pullback_low - self.params["SL_ATR_MULT"] * atr_val
 
-        # Ensure minimum SL distance of 1.5 * ATR
+        # Enforce minimum SL distance: max of ATR-based and absolute floor
         risk_dist = abs(entry - sl)
-        if risk_dist < self.params["SL_ATR_MULT"] * atr_val:
-            sl = entry - self.params["SL_ATR_MULT"] * atr_val
-            risk_dist = abs(entry - sl)
+        min_risk = max(
+            self.params["SL_ATR_MULT"] * atr_val,
+            self.params["MIN_SL_PRICE"],
+        )
+        if risk_dist < min_risk:
+            sl = entry - min_risk
+            risk_dist = min_risk
 
         if risk_dist == 0:
             return None
@@ -355,14 +360,18 @@ class TrendContinuationStrategy(BaseStrategy):
         pullback_highs = [float(highs[j]) for j in range(lookback_start, i + 1)]
         pullback_high = max(pullback_highs) if pullback_highs else high_val
 
-        # Stop loss above pullback high plus 1.5 * ATR
+        # Stop loss above pullback high plus SL_ATR_MULT * ATR
         sl = pullback_high + self.params["SL_ATR_MULT"] * atr_val
 
-        # Ensure minimum SL distance of 1.5 * ATR
+        # Enforce minimum SL distance: max of ATR-based and absolute floor
         risk_dist = abs(sl - entry)
-        if risk_dist < self.params["SL_ATR_MULT"] * atr_val:
-            sl = entry + self.params["SL_ATR_MULT"] * atr_val
-            risk_dist = abs(sl - entry)
+        min_risk = max(
+            self.params["SL_ATR_MULT"] * atr_val,
+            self.params["MIN_SL_PRICE"],
+        )
+        if risk_dist < min_risk:
+            sl = entry + min_risk
+            risk_dist = min_risk
 
         if risk_dist == 0:
             return None

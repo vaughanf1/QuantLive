@@ -56,6 +56,7 @@ class EMAMomentumStrategy(BaseStrategy):
         "BODY_ATR_MULT": 0.4,          # Min candle body as fraction of ATR
         "SL_ATR_MULT": 1.5,            # SL padding below swing low
         "MIN_RISK_ATR": 1.5,           # Minimum SL distance in ATR units
+        "MIN_SL_PRICE": 10.0,          # Absolute minimum SL distance in price ($)
         "TP1_RR": 1.5,                 # TP1 risk:reward
         "TP2_RR": 3.0,                 # TP2 risk:reward
         "EMA_SLOPE_BARS": 5,           # Bars to check EMA slope
@@ -225,9 +226,12 @@ class EMAMomentumStrategy(BaseStrategy):
 
         sl -= self.params["SL_ATR_MULT"] * atr_val
 
-        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
+        # Enforce minimum SL distance: max of ATR-based and absolute floor
         risk_dist = abs(entry - sl)
-        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        min_risk = max(
+            self.params["MIN_RISK_ATR"] * atr_val,
+            self.params["MIN_SL_PRICE"],
+        )
         if risk_dist < min_risk:
             sl = entry - min_risk
             risk_dist = min_risk
@@ -312,9 +316,12 @@ class EMAMomentumStrategy(BaseStrategy):
 
         sl += self.params["SL_ATR_MULT"] * atr_val
 
-        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
+        # Enforce minimum SL distance: max of ATR-based and absolute floor
         risk_dist = abs(sl - entry)
-        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        min_risk = max(
+            self.params["MIN_RISK_ATR"] * atr_val,
+            self.params["MIN_SL_PRICE"],
+        )
         if risk_dist < min_risk:
             sl = entry + min_risk
             risk_dist = min_risk
