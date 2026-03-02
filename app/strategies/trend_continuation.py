@@ -52,7 +52,7 @@ class TrendContinuationStrategy(BaseStrategy):
         "EMA_SLOW": 200,
         "ATR_LENGTH": 14,
         "PULLBACK_ATR_MULT": 1.5,
-        "SL_ATR_MULT": 1.0,
+        "SL_ATR_MULT": 1.5,
         "TP1_RR": 2.0,
         "TP2_RR": 3.0,
         "LOOKBACK_PULLBACK": 8,

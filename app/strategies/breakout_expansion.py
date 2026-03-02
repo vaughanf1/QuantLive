@@ -49,6 +49,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
         "VOLUME_MULT": 1.5,
         "WIDE_RANGE_ATR_MULT": 2.0,
         "BREAKOUT_BODY_ATR": 1.5,
+        "MIN_RISK_ATR": 1.5,
         "BASE_CONFIDENCE": 50,
         "LONDON_OPEN_START": 7,
         "LONDON_OPEN_END": 9,
@@ -241,13 +242,19 @@ class BreakoutExpansionStrategy(BaseStrategy):
             sl = range_low
 
         risk_dist = abs(entry - sl)
+
+        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
+        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        if risk_dist < min_risk:
+            sl = entry - min_risk
+            risk_dist = min_risk
+
         if risk_dist == 0:
             risk_dist = atr_val  # fallback
 
-        # TP1: 1.0 * range_height from entry
-        tp1 = entry + 1.0 * range_height
-        # TP2: 2.0 * range_height from entry
-        tp2 = entry + 2.0 * range_height
+        # TP targets: use risk_dist (not range_height) for proper R:R
+        tp1 = entry + 1.5 * risk_dist
+        tp2 = entry + 3.0 * risk_dist
 
         rr = round((tp1 - entry) / risk_dist, 2) if risk_dist > 0 else 0.0
 
@@ -306,13 +313,19 @@ class BreakoutExpansionStrategy(BaseStrategy):
             sl = range_high
 
         risk_dist = abs(sl - entry)
+
+        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
+        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        if risk_dist < min_risk:
+            sl = entry + min_risk
+            risk_dist = min_risk
+
         if risk_dist == 0:
             risk_dist = atr_val  # fallback
 
-        # TP1: 1.0 * range_height below entry
-        tp1 = entry - 1.0 * range_height
-        # TP2: 2.0 * range_height below entry
-        tp2 = entry - 2.0 * range_height
+        # TP targets: use risk_dist for proper R:R
+        tp1 = entry - 1.5 * risk_dist
+        tp2 = entry - 3.0 * risk_dist
 
         rr = round((entry - tp1) / risk_dist, 2) if risk_dist > 0 else 0.0
 

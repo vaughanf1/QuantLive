@@ -54,14 +54,15 @@ class EMAMomentumStrategy(BaseStrategy):
         "EMA_SLOW": 200,
         "ATR_LENGTH": 14,
         "BODY_ATR_MULT": 0.4,          # Min candle body as fraction of ATR
-        "SL_ATR_MULT": 1.0,            # SL padding below swing low
+        "SL_ATR_MULT": 1.5,            # SL padding below swing low
+        "MIN_RISK_ATR": 1.5,           # Minimum SL distance in ATR units
         "TP1_RR": 1.5,                 # TP1 risk:reward
         "TP2_RR": 3.0,                 # TP2 risk:reward
         "EMA_SLOPE_BARS": 5,           # Bars to check EMA slope
         "SWING_ORDER": 5,              # Swing detection lookback
         "SWING_LOOKBACK": 20,          # Bars to search for swing low/high
         "BASE_CONFIDENCE": 50,
-        "MAX_SL_PIPS": 150.0,          # Hard cap on SL distance in pips
+        "MAX_SL_PIPS": 500.0,          # Hard cap on SL distance in pips
         "PIP_VALUE": 0.10,             # XAUUSD pip value
     }
 
@@ -224,8 +225,14 @@ class EMAMomentumStrategy(BaseStrategy):
 
         sl -= self.params["SL_ATR_MULT"] * atr_val
 
-        # Cap SL distance
+        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
         risk_dist = abs(entry - sl)
+        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        if risk_dist < min_risk:
+            sl = entry - min_risk
+            risk_dist = min_risk
+
+        # Cap SL distance
         sl_pips = risk_dist / pip_value
         if sl_pips > max_sl_pips:
             sl = entry - max_sl_pips * pip_value
@@ -305,8 +312,14 @@ class EMAMomentumStrategy(BaseStrategy):
 
         sl += self.params["SL_ATR_MULT"] * atr_val
 
-        # Cap SL distance
+        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
         risk_dist = abs(sl - entry)
+        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        if risk_dist < min_risk:
+            sl = entry + min_risk
+            risk_dist = min_risk
+
+        # Cap SL distance
         sl_pips = risk_dist / pip_value
         if sl_pips > max_sl_pips:
             sl = entry + max_sl_pips * pip_value

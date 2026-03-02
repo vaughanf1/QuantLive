@@ -49,7 +49,8 @@ class LiquiditySweepStrategy(BaseStrategy):
         "ATR_LENGTH": 14,
         "LOOKBACK": 50,
         "CONFIRM_BARS": 8,
-        "SL_ATR_MULT": 0.3,
+        "SL_ATR_MULT": 1.5,
+        "MIN_RISK_ATR": 1.5,
         "TP1_RR": 1.5,
         "TP2_RR": 3.0,
         "BASE_CONFIDENCE": 50,
@@ -190,6 +191,13 @@ class LiquiditySweepStrategy(BaseStrategy):
         entry = float(closes[confirm_idx])
         sl = float(lows[i]) - self.params["SL_ATR_MULT"] * atr_val
         risk_dist = abs(entry - sl)
+
+        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
+        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        if risk_dist < min_risk:
+            sl = entry - min_risk
+            risk_dist = min_risk
+
         if risk_dist == 0:
             return None
 
@@ -286,6 +294,13 @@ class LiquiditySweepStrategy(BaseStrategy):
         entry = float(closes[confirm_idx])
         sl = float(highs[i]) + self.params["SL_ATR_MULT"] * atr_val
         risk_dist = abs(sl - entry)
+
+        # Enforce minimum SL distance of MIN_RISK_ATR * ATR
+        min_risk = self.params["MIN_RISK_ATR"] * atr_val
+        if risk_dist < min_risk:
+            sl = entry + min_risk
+            risk_dist = min_risk
+
         if risk_dist == 0:
             return None
 
