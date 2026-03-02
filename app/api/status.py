@@ -223,6 +223,183 @@ async def debug_api_test():
     return results
 
 
+@router.get("/debug/signal-diagnostic")
+async def signal_diagnostic():
+    """Run a full signal pipeline diagnostic and return detailed results.
+
+    Shows exactly what each strategy sees, how many candidates it produces,
+    and why candidates get filtered out. Does NOT persist or send signals.
+    """
+    import traceback as tb_mod
+    from datetime import datetime, timezone
+
+    results: dict = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "strategies": [],
+        "circuit_breaker": None,
+        "errors": [],
+    }
+
+    try:
+        from sqlalchemy import and_, select
+
+        from app.database import async_session_factory
+        from app.models.candle import Candle
+        from app.models.strategy import Strategy as StrategyModel
+        from app.services.feedback_controller import FeedbackController
+        from app.services.signal_generator import (
+            MIN_CONFIDENCE,
+            MIN_RR,
+            MAX_SL_PIPS,
+            PIP_VALUE,
+        )
+        from app.services.strategy_selector import StrategySelector
+        from app.strategies.base import (
+            BaseStrategy,
+            candles_to_dataframe,
+            InsufficientDataError,
+        )
+        import app.strategies.liquidity_sweep  # noqa: F401
+        import app.strategies.trend_continuation  # noqa: F401
+        import app.strategies.breakout_expansion  # noqa: F401
+        import app.strategies.ema_momentum  # noqa: F401
+
+        async with async_session_factory() as session:
+            # Check circuit breaker
+            fb = FeedbackController()
+            cb_active = await fb.check_circuit_breaker(session)
+            results["circuit_breaker"] = {
+                "active": cb_active,
+                "consecutive_losses": await fb._count_consecutive_losses(session),
+            }
+
+            # Get ranked strategies
+            selector = StrategySelector()
+            ranked = await selector.select_all_ranked(session)
+            results["ranked_strategies"] = [
+                {
+                    "name": s.strategy_name,
+                    "score": round(s.composite_score, 4),
+                    "degraded": s.is_degraded,
+                    "trades": s.total_trades,
+                }
+                for s in ranked
+            ]
+
+            if not ranked:
+                # Check why -- are strategies active?
+                strat_stmt = select(StrategyModel)
+                strat_result = await session.execute(strat_stmt)
+                all_strats = list(strat_result.scalars().all())
+                results["all_db_strategies"] = [
+                    {"name": s.name, "is_active": s.is_active}
+                    for s in all_strats
+                ]
+                results["errors"].append("No qualifying strategies found")
+                return results
+
+            # Try each strategy
+            registry = BaseStrategy.get_registry()
+            for score in ranked:
+                strat_info: dict = {
+                    "name": score.strategy_name,
+                    "score": round(score.composite_score, 4),
+                    "degraded": score.is_degraded,
+                    "candidates_raw": 0,
+                    "candidates_valid": 0,
+                    "rejection_reasons": [],
+                    "error": None,
+                }
+
+                try:
+                    strategy_cls = registry.get(score.strategy_name)
+                    if not strategy_cls:
+                        strat_info["error"] = "Not in registry"
+                        results["strategies"].append(strat_info)
+                        continue
+
+                    strategy = strategy_cls()
+                    primary_tf = strategy.required_timeframes[0]
+                    limit = strategy.min_candles + 50
+
+                    # Get candles
+                    stmt = (
+                        select(Candle)
+                        .where(and_(
+                            Candle.symbol == "XAUUSD",
+                            Candle.timeframe == primary_tf,
+                        ))
+                        .order_by(Candle.timestamp.desc())
+                        .limit(limit)
+                    )
+                    result = await session.execute(stmt)
+                    candles = result.scalars().all()
+
+                    strat_info["candles_available"] = len(candles)
+                    strat_info["min_candles_required"] = strategy.min_candles
+
+                    if not candles:
+                        strat_info["error"] = f"No {primary_tf} candles in DB"
+                        results["strategies"].append(strat_info)
+                        continue
+
+                    df = candles_to_dataframe(list(candles))
+                    strat_info["candle_range"] = {
+                        "first": str(df["timestamp"].iloc[0]),
+                        "last": str(df["timestamp"].iloc[-1]),
+                        "bars_scanned": max(0, len(df) - strategy.min_candles),
+                    }
+
+                    # Run analyze
+                    candidates = strategy.analyze(df)
+                    strat_info["candidates_raw"] = len(candidates)
+
+                    if not candidates:
+                        strat_info["rejection_reasons"].append(
+                            "analyze() returned 0 candidates - no pattern match in data"
+                        )
+                        results["strategies"].append(strat_info)
+                        continue
+
+                    # Check validation filters on each candidate
+                    valid_count = 0
+                    for c in candidates:
+                        rr = float(c.risk_reward)
+                        conf = float(c.confidence)
+                        sl_dist = abs(float(c.entry_price) - float(c.stop_loss))
+                        sl_pips = sl_dist / PIP_VALUE
+
+                        if rr < MIN_RR:
+                            strat_info["rejection_reasons"].append(
+                                f"R:R {rr:.2f} < {MIN_RR} ({c.direction.value} @ {c.entry_price})"
+                            )
+                        elif sl_pips > MAX_SL_PIPS:
+                            strat_info["rejection_reasons"].append(
+                                f"SL {sl_pips:.0f} pips > {MAX_SL_PIPS} ({c.direction.value} @ {c.entry_price})"
+                            )
+                        elif conf < MIN_CONFIDENCE:
+                            strat_info["rejection_reasons"].append(
+                                f"Confidence {conf:.1f}% < {MIN_CONFIDENCE}% ({c.direction.value} @ {c.entry_price})"
+                            )
+                        else:
+                            valid_count += 1
+
+                    strat_info["candidates_valid"] = valid_count
+
+                except InsufficientDataError as e:
+                    strat_info["error"] = f"Insufficient data: {e}"
+                except Exception as e:
+                    strat_info["error"] = f"{type(e).__name__}: {e}"
+
+                results["strategies"].append(strat_info)
+
+    except Exception as e:
+        results["errors"].append(f"{type(e).__name__}: {e}")
+        results["traceback"] = tb_mod.format_exc()
+
+    return results
+
+
 @router.post("/trigger/{job_name}")
 async def trigger_job(job_name: str):
     """Manually trigger a job and return the result or error.
