@@ -15,6 +15,19 @@ SESSIONS: dict[str, tuple[int, int]] = {
 }
 
 
+def is_in_any_major_session(timestamp: datetime) -> bool:
+    """Check if timestamp falls within any major trading session.
+
+    XAUUSD trades nearly 24h/day. This includes Asian, London, and
+    New York sessions, covering 23:00-21:00 UTC (22 hours).
+    Only the 21:00-23:00 UTC gap is excluded (low liquidity).
+    """
+    hour = timestamp.hour
+    # Asian: 23:00-08:00, London: 07:00-16:00, NY: 12:00-21:00
+    # Combined coverage: 23:00-21:00 (only 21-23 excluded)
+    return not (21 <= hour < 23)
+
+
 def _is_hour_in_range(hour: int, start: int, end: int) -> bool:
     """Check if an hour falls within a session range, handling midnight wrap."""
     if start <= end:

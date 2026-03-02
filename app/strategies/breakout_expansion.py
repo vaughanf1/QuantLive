@@ -45,7 +45,7 @@ class BreakoutExpansionStrategy(BaseStrategy):
         "ATR_LENGTH": 14,
         "ATR_MA_LENGTH": 50,
         "ATR_COMPRESSION": 0.65,
-        "MIN_CONSOL_BARS": 6,
+        "MIN_CONSOL_BARS": 4,
         "VOLUME_MULT": 1.5,
         "WIDE_RANGE_ATR_MULT": 2.0,
         "BREAKOUT_BODY_ATR": 1.5,

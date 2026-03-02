@@ -19,6 +19,7 @@ from app.strategies.helpers.session_filter import (
     SESSIONS,
     get_active_sessions,
     is_in_session,
+    is_in_any_major_session,
 )
 from app.strategies.helpers.swing_detection import (
     detect_swing_highs,
@@ -37,6 +38,7 @@ __all__ = [
     # Session filter
     "get_active_sessions",
     "is_in_session",
+    "is_in_any_major_session",
     "SESSIONS",
     # Market structure
     "detect_structure_shift",

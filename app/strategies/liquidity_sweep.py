@@ -20,6 +20,7 @@ from app.strategies.helpers import (
     detect_swing_highs,
     detect_swing_lows,
     get_active_sessions,
+    is_in_any_major_session,
     is_in_session,
 )
 
@@ -47,7 +48,7 @@ class LiquiditySweepStrategy(BaseStrategy):
         "SWING_ORDER": 5,
         "ATR_LENGTH": 14,
         "LOOKBACK": 50,
-        "CONFIRM_BARS": 5,
+        "CONFIRM_BARS": 8,
         "SL_ATR_MULT": 0.3,
         "TP1_RR": 1.5,
         "TP2_RR": 3.0,
@@ -103,8 +104,7 @@ class LiquiditySweepStrategy(BaseStrategy):
 
             # --- session filter on the sweep candle ---
             ts = pd.Timestamp(timestamps[i]).to_pydatetime()
-            if not (is_in_session(ts, "london") or
-                    is_in_session(ts, "new_york")):
+            if not is_in_any_major_session(ts):
                 continue
 
             # Collect recent swing lows & highs within lookback window

@@ -84,12 +84,19 @@ class SignalPipeline:
         # 2. Rank all strategies
         ranked = await self.selector.select_all_ranked(session)
         if not ranked:
-            logger.info(
-                "No qualifying strategy found, skipping signal generation"
+            logger.warning(
+                "No qualifying strategy found, skipping signal generation. "
+                "Check: are strategies active in DB? Do they have backtest "
+                "results with >= 8 trades?"
             )
             return []
 
         regime = ranked[0].regime
+        logger.info(
+            "Signal pipeline: {} strategies qualified, regime={}",
+            len(ranked),
+            regime.value,
+        )
 
         # 3. Try each strategy in ranked order until one produces a signal
         validated = []
@@ -194,8 +201,10 @@ class SignalPipeline:
             break
         else:
             # Exhausted all strategies with no valid signal
-            logger.info(
-                "All {} strategies tried, none produced valid signals",
+            logger.warning(
+                "All {} strategies tried, none produced valid signals. "
+                "Strategies may need looser conditions or market conditions "
+                "don't match any pattern.",
                 len(ranked),
             )
             return []

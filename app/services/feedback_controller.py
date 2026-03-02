@@ -36,10 +36,10 @@ class FeedbackController:
         - Degradation has been active for >= 7 days
 
     Circuit breaker (FEED-05):
-        - 5+ consecutive losses (sl_hit or expired)
+        - 8+ consecutive losses (sl_hit only; profitable expirations excluded)
         - OR current drawdown > 2x historical max drawdown
         - Auto-resets after 24-hour cooldown
-        - Also resets when consecutive loss count drops below 5 (after a win)
+        - Also resets when consecutive loss count drops below threshold
     """
 
     CONSECUTIVE_LOSS_LIMIT = 8
@@ -49,7 +49,9 @@ class FeedbackController:
     WIN_RATE_DROP_THRESHOLD = 0.15
     MIN_OUTCOMES_FOR_DEGRADATION = 10  # Need enough data for meaningful stats
 
-    # In-memory circuit breaker state (acceptable per decision: MemoryJobStore)
+    # Class-level circuit breaker state shared across all instances.
+    # Using class vars (not instance vars) so state persists across
+    # FeedbackController() instantiations within the same process.
     _circuit_breaker_active: bool = False
     _circuit_breaker_triggered_at: datetime | None = None
 
@@ -266,27 +268,28 @@ class FeedbackController:
 
         Returns True if circuit breaker is active (signals should be halted).
         """
+        cls = type(self)  # Use class-level state, not instance
         now = datetime.now(timezone.utc)
 
         # 1. Check 24h cooldown reset
-        if self._circuit_breaker_active and self._circuit_breaker_triggered_at is not None:
-            elapsed = (now - self._circuit_breaker_triggered_at).total_seconds() / 3600
+        if cls._circuit_breaker_active and cls._circuit_breaker_triggered_at is not None:
+            elapsed = (now - cls._circuit_breaker_triggered_at).total_seconds() / 3600
             if elapsed >= self.COOLDOWN_HOURS:
                 logger.info(
                     "Circuit breaker cooldown expired ({:.1f}h >= {}h), resetting",
                     elapsed,
                     self.COOLDOWN_HOURS,
                 )
-                self._circuit_breaker_active = False
-                self._circuit_breaker_triggered_at = None
+                cls._circuit_breaker_active = False
+                cls._circuit_breaker_triggered_at = None
 
         # 2. Check consecutive losses
         consecutive_losses = await self._count_consecutive_losses(session)
 
         if consecutive_losses >= self.CONSECUTIVE_LOSS_LIMIT:
-            if not self._circuit_breaker_active:
-                self._circuit_breaker_active = True
-                self._circuit_breaker_triggered_at = now
+            if not cls._circuit_breaker_active:
+                cls._circuit_breaker_active = True
+                cls._circuit_breaker_triggered_at = now
                 logger.warning(
                     "Circuit breaker ACTIVATED: {} consecutive losses (limit={})",
                     consecutive_losses,
@@ -302,9 +305,9 @@ class FeedbackController:
 
         # Edge case: if max_drawdown is 0, no baseline to compare -> not triggered
         if max_dd > 0 and running_dd > self.DRAWDOWN_MULTIPLIER * max_dd:
-            if not self._circuit_breaker_active:
-                self._circuit_breaker_active = True
-                self._circuit_breaker_triggered_at = now
+            if not cls._circuit_breaker_active:
+                cls._circuit_breaker_active = True
+                cls._circuit_breaker_triggered_at = now
                 logger.warning(
                     "Circuit breaker ACTIVATED: drawdown {:.2f} > {}x max {:.2f}",
                     running_dd,
@@ -314,10 +317,10 @@ class FeedbackController:
             return True
 
         # If we got here, no trigger conditions met
-        if self._circuit_breaker_active:
+        if cls._circuit_breaker_active:
             # Reset if cooldown expired (handled above) or conditions cleared
-            self._circuit_breaker_active = False
-            self._circuit_breaker_triggered_at = None
+            cls._circuit_breaker_active = False
+            cls._circuit_breaker_triggered_at = None
             logger.info("Circuit breaker conditions cleared, resetting")
 
         return False
@@ -325,22 +328,25 @@ class FeedbackController:
     async def _count_consecutive_losses(self, session: AsyncSession) -> int:
         """Count consecutive losses from most recent outcome backwards.
 
-        Queries outcomes ordered by created_at DESC. Counts sl_hit and expired
-        results until a win (tp1_hit or tp2_hit) is encountered.
+        Queries outcomes ordered by created_at DESC. Counts sl_hit results
+        and expired results with negative P&L as losses. Expired signals
+        with positive P&L are treated as non-losses (break the streak).
         """
         stmt = (
-            select(Outcome.result)
+            select(Outcome.result, Outcome.pnl_pips)
             .order_by(Outcome.created_at.desc())
         )
         result = await session.execute(stmt)
-        results = result.scalars().all()
+        rows = result.all()
 
         count = 0
-        for r in results:
-            if r in ("sl_hit", "expired"):
+        for outcome_result, pnl_pips in rows:
+            if outcome_result == "sl_hit":
+                count += 1
+            elif outcome_result == "expired" and (pnl_pips is not None and float(pnl_pips) < 0):
                 count += 1
             else:
-                break  # Hit a win, stop counting
+                break  # Hit a win or profitable expiry, stop counting
 
         return count
 

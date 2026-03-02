@@ -134,11 +134,21 @@ class SignalGenerator:
             )
             return []
 
-        logger.info(
-            "Strategy '{}' produced {} candidate signal(s)",
-            strategy_name,
-            len(candidates),
-        )
+        if candidates:
+            logger.info(
+                "Strategy '{}' produced {} candidate signal(s)",
+                strategy_name,
+                len(candidates),
+            )
+        else:
+            logger.info(
+                "Strategy '{}' produced 0 candidates from {} candles "
+                "(timeframe={}, scanned last ~{} bars)",
+                strategy_name,
+                len(df),
+                primary_tf,
+                max(0, len(df) - strategy.min_candles),
+            )
         return candidates
 
     @staticmethod

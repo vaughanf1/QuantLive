@@ -22,6 +22,7 @@ from app.strategies.helpers import (
     detect_swing_highs,
     detect_swing_lows,
     get_active_sessions,
+    is_in_any_major_session,
     is_in_session,
 )
 
@@ -119,14 +120,14 @@ class TrendContinuationStrategy(BaseStrategy):
             if isnan(ema50_val) or isnan(ema200_val):
                 continue
 
-            # --- session filter ---
+            # --- session filter: any major session (Asian/London/NY) ---
             ts = pd.Timestamp(timestamps[i]).to_pydatetime()
-            if not (is_in_session(ts, "london") or is_in_session(ts, "new_york")):
+            if not is_in_any_major_session(ts):
                 continue
 
             # --- trend direction ---
             ema_spread = abs(ema50_val - ema200_val)
-            if ema_spread < 0.5 * atr_val:
+            if ema_spread < 0.3 * atr_val:
                 continue  # no clear trend
 
             bullish_trend = ema50_val > ema200_val

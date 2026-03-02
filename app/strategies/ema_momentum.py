@@ -22,6 +22,7 @@ from app.strategies.helpers import (
     detect_swing_highs,
     detect_swing_lows,
     get_active_sessions,
+    is_in_any_major_session,
     is_in_session,
 )
 
@@ -52,7 +53,7 @@ class EMAMomentumStrategy(BaseStrategy):
         "EMA_MID": 50,
         "EMA_SLOW": 200,
         "ATR_LENGTH": 14,
-        "BODY_ATR_MULT": 0.6,          # Min candle body as fraction of ATR
+        "BODY_ATR_MULT": 0.4,          # Min candle body as fraction of ATR
         "SL_ATR_MULT": 1.0,            # SL padding below swing low
         "TP1_RR": 1.5,                 # TP1 risk:reward
         "TP2_RR": 3.0,                 # TP2 risk:reward
@@ -123,9 +124,9 @@ class EMAMomentumStrategy(BaseStrategy):
             if isnan(ema_f) or isnan(ema_m) or isnan(ema_s):
                 continue
 
-            # --- session filter: London or New York ---
+            # --- session filter: any major session (Asian/London/NY) ---
             ts = pd.Timestamp(timestamps[i]).to_pydatetime()
-            if not (is_in_session(ts, "london") or is_in_session(ts, "new_york")):
+            if not is_in_any_major_session(ts):
                 continue
 
             close_val = float(closes[i])
