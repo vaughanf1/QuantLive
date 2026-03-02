@@ -159,24 +159,35 @@ class SignalGenerator:
         """Load active, non-overfitted optimized params for a strategy.
 
         Returns the params dict if found, or None to use defaults.
+        Gracefully returns None if the optimized_params table doesn't exist.
         """
-        from app.models.optimized_params import OptimizedParams
+        try:
+            from app.models.optimized_params import OptimizedParams
 
-        stmt = (
-            select(OptimizedParams.params)
-            .where(
-                and_(
-                    OptimizedParams.strategy_name == strategy_name,
-                    OptimizedParams.is_active.is_(True),
-                    OptimizedParams.is_overfitted.isnot(True),
+            stmt = (
+                select(OptimizedParams.params)
+                .where(
+                    and_(
+                        OptimizedParams.strategy_name == strategy_name,
+                        OptimizedParams.is_active.is_(True),
+                        OptimizedParams.is_overfitted.isnot(True),
+                    )
                 )
+                .order_by(OptimizedParams.created_at.desc())
+                .limit(1)
             )
-            .order_by(OptimizedParams.created_at.desc())
-            .limit(1)
-        )
-        result = await session.execute(stmt)
-        row = result.scalar_one_or_none()
-        return row if row else None
+            result = await session.execute(stmt)
+            row = result.scalar_one_or_none()
+            return row if row else None
+        except Exception as exc:
+            logger.warning(
+                "Could not load optimized params for '{}': {} -- using defaults",
+                strategy_name,
+                str(exc)[:120],
+            )
+            # Rollback the failed transaction so the session is usable
+            await session.rollback()
+            return None
 
     async def validate(
         self,
