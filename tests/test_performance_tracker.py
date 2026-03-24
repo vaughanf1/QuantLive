@@ -5,6 +5,7 @@ upsert logic for StrategyPerformance rows, edge cases (no outcomes, all wins,
 multiple strategies), and result classification (tp1/tp2 as wins, sl/expired as losses).
 """
 
+import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -23,7 +24,10 @@ from app.services.performance_tracker import PerformanceTracker
 # ---------------------------------------------------------------------------
 # Test database setup (same pattern as conftest.py)
 # ---------------------------------------------------------------------------
-TEST_DATABASE_URL = "postgresql+asyncpg://vaughanfawcett@localhost:5432/goldsignal_test"
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://postgres@localhost:5432/goldsignal_test",
+)
 
 _schema_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 _tables_created = False

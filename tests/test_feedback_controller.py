@@ -6,6 +6,7 @@ cooldown reset, and win-based reset. Uses real database for degradation/
 recovery tests and mocked sessions for circuit breaker logic.
 """
 
+import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -26,7 +27,10 @@ from app.services.feedback_controller import FeedbackController
 # ---------------------------------------------------------------------------
 # Test database setup (same pattern as test_performance_tracker.py)
 # ---------------------------------------------------------------------------
-TEST_DATABASE_URL = "postgresql+asyncpg://vaughanfawcett@localhost:5432/goldsignal_test"
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://postgres@localhost:5432/goldsignal_test",
+)
 
 _schema_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 _tables_created = False

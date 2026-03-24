@@ -22,7 +22,7 @@ from app.models.base import Base
 # ---------------------------------------------------------------------------
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://vaughanfawcett@localhost:5432/goldsignal_test",
+    "postgresql+asyncpg://postgres@localhost:5432/goldsignal_test",
 )
 
 # Module-level engine for schema management (create/drop tables)
