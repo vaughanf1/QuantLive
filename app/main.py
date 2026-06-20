@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from loguru import logger
 from sqlalchemy import func, select
 
@@ -144,6 +145,12 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    """Redirect the bare domain to the dashboard."""
+    return RedirectResponse(url="/dashboard/")
+
 
 app.include_router(health_router)
 app.include_router(status_router)
